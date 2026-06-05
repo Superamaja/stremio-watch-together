@@ -19,17 +19,13 @@
     // Set flag to indicate userscript is loaded
     window.stremioWatchTogetherLoaded = true;
 
-    // Firebase Configuration (moved to DEFAULT_FIREBASE_CONFIG below)
-
     // Configuration - CHANGE THIS TO MATCH HOST'S ROOM ID
     let ROOM_ID = "room123"; // Default room ID - can be changed via settings
     const USER_ID = "guest_" + Math.random().toString(36).substr(2, 6);
     let DISPLAY_NAME = "";
 
-    // Default Firebase Configuration
-    const DEFAULT_FIREBASE_CONFIG = __DEFAULT_FIREBASE_CONFIG__;
-
-    let firebaseConfig = { ...DEFAULT_FIREBASE_CONFIG };
+    // Firebase credentials are baked in at build time from .env
+    const FIREBASE_CONFIG = __DEFAULT_FIREBASE_CONFIG__;
     const LUCIDE_ICONS = __LUCIDE_ICONS__;
 
     function lucideIcon(iconName, size = 24) {
@@ -115,11 +111,6 @@
             if (savedConfig) {
                 const config = JSON.parse(savedConfig);
                 if (config.roomId) ROOM_ID = config.roomId;
-                if (config.firebaseConfig)
-                    firebaseConfig = {
-                        ...DEFAULT_FIREBASE_CONFIG,
-                        ...config.firebaseConfig,
-                    };
                 if (config.displayName) DISPLAY_NAME = config.displayName;
                 console.log("GUEST: Configuration loaded from localStorage");
             }
@@ -133,7 +124,6 @@
         try {
             const config = {
                 roomId: ROOM_ID,
-                firebaseConfig: firebaseConfig,
                 displayName: DISPLAY_NAME,
                 lastUpdated: Date.now(),
             };
@@ -149,7 +139,6 @@
         try {
             localStorage.removeItem(CONFIG_STORAGE_KEY);
             ROOM_ID = "room123";
-            firebaseConfig = { ...DEFAULT_FIREBASE_CONFIG };
             DISPLAY_NAME = "";
             console.log("GUEST: Configuration cleared");
         } catch (error) {
@@ -308,103 +297,6 @@
         return username.toLowerCase();
     }
 
-    // Check if Firebase config is properly configured
-    function isFirebaseConfigValid() {
-        const requiredFields = [
-            "apiKey",
-            "authDomain",
-            "projectId",
-            "databaseURL",
-        ];
-        for (const field of requiredFields) {
-            if (
-                !firebaseConfig[field] ||
-                firebaseConfig[field] === field ||
-                firebaseConfig[field].includes("YOUR") ||
-                firebaseConfig[field].includes("placeholder")
-            ) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    // Show Firebase configuration required message
-    function showFirebaseConfigRequired() {
-        // Create a prominent message overlay
-        const overlay = document.createElement("div");
-        overlay.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
-            color: white;
-            font-family: Arial, sans-serif;
-        `;
-
-        overlay.innerHTML = `
-            <div style="text-align: center; max-width: 500px; padding: 40px; background: rgba(76, 175, 80, 0.1); border: 2px solid #4CAF50; border-radius: 10px;">
-                <h2 style="color: #4CAF50; margin: 0 0 20px 0;">Firebase Configuration Required</h2>
-                <p style="font-size: 1.1em; margin: 0 0 20px 0; line-height: 1.5;">
-                    This generated userscript does not include Firebase defaults yet.
-                </p>
-                <p style="margin: 0 0 30px 0; opacity: 0.9;">
-                    Add your Firebase values to .env, run pnpm run build, then reinstall the generated guest script.
-                </p>
-                <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
-                    <button id="openSettings" style="
-                        background: #4CAF50;
-                        color: white;
-                        border: none;
-                        padding: 12px 24px;
-                        border-radius: 5px;
-                        cursor: pointer;
-                        font-size: 1em;
-                        font-weight: bold;
-                    ">Room Settings</button>
-                    <button id="closeMessage" style="
-                        background: #666;
-                        color: white;
-                        border: none;
-                        padding: 12px 24px;
-                        border-radius: 5px;
-                        cursor: pointer;
-                        font-size: 1em;
-                    ">Close</button>
-                </div>
-                <div style="margin-top: 20px; font-size: 0.9em; opacity: 0.8;">
-                    <p>Room settings are still available, but Firebase is configured at build time.</p>
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(overlay);
-
-        // Add event listeners
-        document
-            .getElementById("openSettings")
-            .addEventListener("click", () => {
-                overlay.remove();
-                showSettingsPopup();
-            });
-
-        document
-            .getElementById("closeMessage")
-            .addEventListener("click", () => {
-                overlay.remove();
-            });
-
-        console.log(
-            "GUEST WARNING: Firebase configuration required message displayed",
-        );
-    }
-
     // Global variables
     let app, database, roomRef;
     let watchTogetherEnabled = false;
@@ -447,15 +339,6 @@
 
     // Initialize Firebase
     async function initializeFirebase() {
-        // Check if Firebase config is valid
-        if (!isFirebaseConfigValid()) {
-            console.log(
-                "GUEST WARNING: Firebase not configured. Please configure Firebase settings first.",
-            );
-            showFirebaseConfigRequired();
-            return false;
-        }
-
         try {
             const { initializeApp } =
                 await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js");
@@ -471,7 +354,7 @@
                 }
             }
 
-            app = initializeApp(firebaseConfig);
+            app = initializeApp(FIREBASE_CONFIG);
             database = getDatabase(app);
             roomRef = ref(database, "rooms/" + ROOM_ID);
 
@@ -799,10 +682,6 @@
                     <button id="copyRoomId" title="Copy Room ID" style="width: 46px; border: none; border-radius: 8px; background: #444; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center;">${lucideIcon("clipboard-copy", 20)}</button>
                 </div>
 
-                <div style="padding: 12px; border-left: 4px solid #4CAF50; background: rgba(76, 175, 80, 0.08); color: #ddd; font-size: 12px; line-height: 1.45; margin-bottom: 20px;">
-                    Firebase defaults are built into the userscript from .env. This panel only changes your room and display name.
-                </div>
-
                 <div style="display: flex; justify-content: space-between; gap: 12px;">
                     <button id="clearConfig" style="padding: 11px 14px; background: #666; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;">Clear Local</button>
                     <div style="display: flex; gap: 10px;">
@@ -905,12 +784,6 @@
 
     // Toggle Watch Together functionality
     function toggleWatchTogether() {
-        // Check if Firebase is configured
-        if (!isFirebaseConfigValid()) {
-            showFirebaseConfigRequired();
-            return;
-        }
-
         watchTogetherEnabled = !watchTogetherEnabled;
 
         if (watchTogetherEnabled) {
