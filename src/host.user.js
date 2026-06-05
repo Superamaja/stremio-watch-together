@@ -346,6 +346,7 @@
     let videoStateListeners = [];
     let lastSentTime = 0;
     let guestStates = {};
+    let guestDriftSnapshots = {};
     let isAnyGuestBuffering = false;
     let currentControllerId = null;
     let controlRequests = {};
@@ -864,8 +865,8 @@
         return `${minutes}:${String(secs).padStart(2, "0")}`;
     }
 
-    function getDriftInfo(guestTime) {
-        const drift = (guestTime || 0) - getCurrentTime();
+    function getDriftInfo(guestTime, hostTime = getCurrentTime()) {
+        const drift = (guestTime || 0) - hostTime;
         const absoluteDrift = Math.abs(drift);
         const color =
             absoluteDrift <= 1.5
@@ -878,6 +879,50 @@
                 ? "in sync"
                 : `${drift > 0 ? "+" : "-"}${absoluteDrift.toFixed(1)}s`;
         return { drift, absoluteDrift, color, label };
+    }
+
+    function getGuestDriftSignature(guest) {
+        return [
+            Number.isFinite(guest.currentTime) ? guest.currentTime.toFixed(3) : "none",
+            guest.lastUpdated || 0,
+            guest.timeReliable !== false,
+            !!guest.isPlaying,
+            !!guest.isBuffering,
+        ].join("|");
+    }
+
+    function updateGuestDriftSnapshots(guests) {
+        const activeGuestIds = new Set(Object.keys(guests || {}));
+
+        for (const guestId of Object.keys(guestDriftSnapshots)) {
+            if (!activeGuestIds.has(guestId)) {
+                delete guestDriftSnapshots[guestId];
+            }
+        }
+
+        for (const [guestId, guest] of Object.entries(guests || {})) {
+            if (!guest) continue;
+
+            const signature = getGuestDriftSignature(guest);
+            if (guestDriftSnapshots[guestId]?.signature === signature) {
+                continue;
+            }
+
+            const hostTime = getCurrentTime();
+            const guestTime = Number.isFinite(guest.currentTime)
+                ? guest.currentTime
+                : 0;
+            const timeReliable = guest.timeReliable !== false;
+
+            guestDriftSnapshots[guestId] = {
+                signature,
+                hostTime,
+                guestTime,
+                timeReliable,
+                driftInfo: timeReliable ? getDriftInfo(guestTime, hostTime) : null,
+                sampledAt: Date.now(),
+            };
+        }
     }
 
     // Check if movie has loaded (timer shows actual time instead of --:--:--)
@@ -1060,6 +1105,7 @@
 
                     // Update guest states
                     guestStates = data.guests;
+                    updateGuestDriftSnapshots(guestStates);
 
                     // Check for guest buffering
                     checkGuestBuffering();
@@ -1068,6 +1114,10 @@
                     showGuestStatus(guestCount);
 
                     // Update control panel
+                    updateControlPanel();
+                } else if (data && !data.guests) {
+                    guestStates = {};
+                    guestDriftSnapshots = {};
                     updateControlPanel();
                 }
 
@@ -1438,17 +1488,14 @@
         const guestCount = Object.keys(guestStates).length;
         const requestCount = Object.keys(controlRequests).length;
         const hostTime = getCurrentTime();
-        const hasActionableDrift = Object.values(guestStates).some((guest) => {
+        const hasActionableDrift = Object.entries(guestStates).some(([guestId, guest]) => {
             if (!guest || guest.timeReliable === false) return false;
             const lastSeen = guest.lastSeen || guest.lastUpdated || 0;
             const secondsSinceSeen = lastSeen
                 ? Math.max(0, Math.round((Date.now() - lastSeen) / 1000))
                 : null;
             if (secondsSinceSeen !== null && secondsSinceSeen > 20) return false;
-            const guestTime = Number.isFinite(guest.currentTime)
-                ? guest.currentTime
-                : 0;
-            return Math.abs(guestTime - hostTime) > 4;
+            return (guestDriftSnapshots[guestId]?.driftInfo?.absoluteDrift || 0) > 4;
         });
         const forceSyncButtonLabel = hasActionableDrift
             ? "Force Sync Guests - Drift Detected"
@@ -1472,11 +1519,19 @@
 
             const isController = currentControllerId === guestId;
             const hasRequest = controlRequests[guestId];
-            const guestTime = Number.isFinite(guest.currentTime)
-                ? guest.currentTime
-                : 0;
-            const timeReliable = guest.timeReliable !== false;
-            const driftInfo = timeReliable ? getDriftInfo(guestTime) : null;
+            const driftSnapshot = guestDriftSnapshots[guestId];
+            const guestTime = driftSnapshot
+                ? driftSnapshot.guestTime
+                : Number.isFinite(guest.currentTime)
+                  ? guest.currentTime
+                  : 0;
+            const sampledHostTime = driftSnapshot
+                ? driftSnapshot.hostTime
+                : hostTime;
+            const timeReliable = driftSnapshot
+                ? driftSnapshot.timeReliable
+                : guest.timeReliable !== false;
+            const driftInfo = driftSnapshot?.driftInfo || null;
             const lastSeen = guest.lastSeen || guest.lastUpdated || 0;
             const secondsSinceSeen = lastSeen
                 ? Math.max(0, Math.round((Date.now() - lastSeen) / 1000))
@@ -1499,11 +1554,11 @@
                         <span style="font-weight: ${isController ? "600" : "400"}; color: ${isController ? "#4CAF50" : "#e0e0e0"};">
                             ${guest.displayName || guestId}
                         </span>
-                        <span style="font-size: 11px; color: ${timeReliable ? driftInfo.color : "#aaa"}; font-weight: 700;">
-                            ${isStale ? "offline" : timeReliable ? driftInfo.label : "checking time..."}
+                        <span style="font-size: 11px; color: ${timeReliable && driftInfo ? driftInfo.color : "#aaa"}; font-weight: 700;">
+                            ${isStale ? "offline" : timeReliable && driftInfo ? `Guest ${driftInfo.label}` : "checking time..."}
                         </span>
                         <span style="font-size: 11px; color: #aaa;">
-                            ${timeReliable ? `${formatTimestamp(guestTime)} vs ${formatTimestamp(hostTime)}` : `last ${formatTimestamp(guestTime)} vs ${formatTimestamp(hostTime)}`} - ${statusLabel}${secondsSinceSeen === null ? "" : `, ${secondsSinceSeen}s ago`}
+                            ${timeReliable ? `Host ${formatTimestamp(sampledHostTime)} vs Guest ${formatTimestamp(guestTime)}` : `Last host ${formatTimestamp(sampledHostTime)} vs guest ${formatTimestamp(guestTime)}`} - ${statusLabel}${secondsSinceSeen === null ? "" : `, ${secondsSinceSeen}s ago`}
                         </span>
                     </div>
                     <div>

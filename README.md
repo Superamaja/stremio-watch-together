@@ -254,6 +254,7 @@ Firebase is configured at build time through `.env`, not through the in-player s
 - **Force Sync button** - The host control panel can now send an immediate sync event to guests.
 - **Force Sync emphasis** - The button becomes more prominent when reliable guest drift exceeds the warning threshold.
 - **Guest drift visibility** - The host can see each guest's timestamp compared with the host timestamp.
+- **Sampled drift labels** - Guest `+/-` drift labels update only when guest timestamp data changes, not on every panel redraw.
 - **Manual drift correction** - Normal updates show drift without auto-seeking; use Force Sync when you want everyone snapped back together.
 - **Better guest status reporting** - Guests report current time, play state, buffering state, duration, and last-seen time.
 - **Stale guest styling** - Guests fade and show as offline after missed heartbeats.
