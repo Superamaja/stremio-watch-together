@@ -37,6 +37,46 @@
         return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${icon}</svg>`;
     }
 
+    // Inject shared styles for the settings modal once (hover feedback,
+    // animations, backdrop, focus ring). Targets elements by container class so
+    // existing inline styles don't need to change.
+    function injectPanelStyles() {
+        if (document.getElementById("watch-together-styles")) return;
+        const style = document.createElement("style");
+        style.id = "watch-together-styles";
+        style.textContent = `
+            .watch-together-settings-popup button {
+                transition: filter 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+            }
+            .watch-together-settings-popup button:hover {
+                filter: brightness(1.14);
+            }
+            .watch-together-settings-popup button:active {
+                transform: scale(0.97);
+            }
+            .watch-together-settings-popup input:focus {
+                outline: none;
+                border-color: #4CAF50 !important;
+                box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.22);
+            }
+            .watch-together-backdrop {
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.55);
+                backdrop-filter: blur(3px);
+                z-index: 9999;
+                animation: wt-fade-in 0.16s ease;
+            }
+            .watch-together-settings-popup { animation: wt-pop-in 0.18s ease; }
+            @keyframes wt-fade-in { from { opacity: 0; } to { opacity: 1; } }
+            @keyframes wt-pop-in {
+                from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
+                to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
     // Configuration Management
     const CONFIG_STORAGE_KEY = "stremio_watch_together_config";
 
@@ -346,6 +386,8 @@
     let watchTogetherButton = null;
     let settingsButton = null;
     let settingsPopup = null;
+    let settingsBackdrop = null;
+    let settingsEscHandler = null;
     let lastKnownHostState = null;
     let isFollowingHost = false;
     let bufferingObserver = null;
@@ -602,6 +644,14 @@
             settingsPopup.remove();
             settingsPopup = null;
         }
+        if (settingsBackdrop) {
+            settingsBackdrop.remove();
+            settingsBackdrop = null;
+        }
+        if (settingsEscHandler) {
+            document.removeEventListener("keydown", settingsEscHandler);
+            settingsEscHandler = null;
+        }
     }
 
     function clearAllSettings() {
@@ -660,6 +710,11 @@
     function showSettingsPopup() {
         hideSettingsPopup();
 
+        settingsBackdrop = document.createElement("div");
+        settingsBackdrop.className = "watch-together-backdrop";
+        settingsBackdrop.addEventListener("click", hideSettingsPopup);
+        document.body.appendChild(settingsBackdrop);
+
         settingsPopup = document.createElement("div");
         settingsPopup.className = "watch-together-settings-popup";
         settingsPopup.style.cssText = `
@@ -667,16 +722,18 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-            border: 2px solid #4CAF50;
-            border-radius: 12px;
+            background: rgba(22, 24, 28, 0.82);
+            backdrop-filter: blur(20px) saturate(120%);
+            -webkit-backdrop-filter: blur(20px) saturate(120%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 16px;
             padding: 0;
             z-index: 10000;
             width: 420px;
             max-width: 95vw;
             color: white;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
             overflow: hidden;
         `;
 
@@ -686,7 +743,7 @@
                     <h3 style="margin: 0; font-size: 20px; font-weight: 700;">Watch Together Settings</h3>
                     <p style="margin: 6px 0 0 0; opacity: 0.9; font-size: 13px;">Room and identity settings</p>
                 </div>
-                <button id="closeSettings" title="Close Settings" style="background: rgba(0,0,0,0.2); border: none; color: white; width: 34px; height: 34px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center;">x</button>
+                <button id="closeSettings" title="Close Settings" aria-label="Close Settings" style="background: rgba(0,0,0,0.2); border: none; color: white; width: 34px; height: 34px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px; line-height: 1;">&times;</button>
             </div>
             <div style="padding: 20px;">
                 <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #e0e0e0;">Display Name</label>
@@ -721,6 +778,13 @@
         document.getElementById("roomIdInput").addEventListener("keydown", (e) => {
             if (e.key === "Enter") saveSettings();
         });
+
+        settingsEscHandler = (e) => {
+            if (e.key === "Escape") hideSettingsPopup();
+        };
+        document.addEventListener("keydown", settingsEscHandler);
+
+        document.getElementById("displayNameInput").focus();
 
         console.log("GUEST: Settings popup shown");
     }
@@ -1755,6 +1819,7 @@
             }
         }
 
+        injectPanelStyles();
         createWatchTogetherButton();
         createRequestControlButton();
         createSettingsButton();

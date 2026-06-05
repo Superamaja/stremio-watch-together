@@ -9,8 +9,10 @@ const envPath = path.join(rootDir, ".env");
 const lucideIconDir = path.join(rootDir, "node_modules", "lucide-static", "icons");
 const lucideIconNames = [
   "badge-check",
+  "check",
   "clipboard-copy",
   "circle-question-mark",
+  "crown",
   "link-2",
   "mouse-pointer-click",
   "refresh-ccw-dot",
@@ -18,7 +20,10 @@ const lucideIconNames = [
   "radio-receiver",
   "settings",
   "sliders-horizontal",
+  "trash-2",
+  "users",
   "wifi-sync",
+  "x",
 ];
 const firebaseConfigFields = {
   apiKey: "FIREBASE_API_KEY",

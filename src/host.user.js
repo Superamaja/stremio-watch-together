@@ -737,16 +737,18 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-            border: 2px solid #FF6B35;
-            border-radius: 12px;
+            background: rgba(22, 24, 28, 0.82);
+            backdrop-filter: blur(20px) saturate(120%);
+            -webkit-backdrop-filter: blur(20px) saturate(120%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 16px;
             padding: 0;
             z-index: 10000;
             width: 440px;
             max-width: 95vw;
             color: white;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
             overflow: hidden;
         `;
 
@@ -1596,14 +1598,16 @@
             right: 20px;
             width: 320px;
             max-height: 500px;
-            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-            border: 2px solid #FF6B35;
-            border-radius: 12px;
+            background: rgba(22, 24, 28, 0.78);
+            backdrop-filter: blur(18px) saturate(120%);
+            -webkit-backdrop-filter: blur(18px) saturate(120%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 16px;
             padding: 0;
             z-index: 9999;
             color: white;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
             overflow: hidden;
             display: none;
         `;
@@ -1683,27 +1687,36 @@
                 : "transparent";
             const guestRowOpacity = isStale ? "0.62" : "1";
 
+            const dotColor = isStale ? "#f44336" : "#4CAF50";
+            const dotGlow = isStale ? "rgba(244,67,54,0.6)" : "rgba(76,175,80,0.6)";
+            const statusPill = isStale
+                ? `<span style="font-size: 10px; font-weight: 700; letter-spacing: 0.5px; color: #f44336; background: rgba(244,67,54,0.16); padding: 2px 8px; border-radius: 10px;">OFFLINE</span>`
+                : timeReliable && driftInfo
+                  ? `<span style="font-size: 10px; font-weight: 700; color: ${driftInfo.color}; background: ${driftInfo.color}22; padding: 2px 8px; border-radius: 10px;">${escapeHtml(driftInfo.label)}</span>`
+                  : `<span style="font-size: 10px; color: #aaa;">checking time…</span>`;
+
             guestHTML += `
-                <div style="padding: 12px; border-bottom: 1px solid #333; display: flex; align-items: center; justify-content: space-between; background: ${guestRowBackground}; opacity: ${guestRowOpacity};">
-                    <div style="flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0;">
-                        ${isController ? '<span style="font-size: 16px;">👑</span>' : ""}
-                        <span class="wt-ellipsis" style="font-weight: ${isController ? "600" : "400"}; color: ${isController ? "#4CAF50" : "#e0e0e0"};">
-                            ${escapeHtml(guest.displayName || guestId)}
-                        </span>
-                        <span style="font-size: 11px; color: ${timeReliable && driftInfo ? driftInfo.color : "#aaa"}; font-weight: 700;">
-                            ${isStale ? "offline" : timeReliable && driftInfo ? `Guest ${driftInfo.label}` : "checking time..."}
-                        </span>
-                        <span style="font-size: 11px; color: #aaa;">
+                <div style="padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.07); display: flex; align-items: center; justify-content: space-between; gap: 10px; background: ${guestRowBackground}; opacity: ${guestRowOpacity};">
+                    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px;">
+                        <div style="display: flex; align-items: center; gap: 7px; min-width: 0;">
+                            <span style="flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: ${dotColor}; box-shadow: 0 0 6px ${dotGlow};"></span>
+                            ${isController ? `<span style="flex: 0 0 auto; color: #FFC107; display: inline-flex;">${lucideIcon("crown", 14)}</span>` : ""}
+                            <span class="wt-ellipsis" style="font-weight: ${isController ? "600" : "500"}; font-size: 13px; color: ${isController ? "#4CAF50" : "#e0e0e0"};">
+                                ${escapeHtml(guest.displayName || guestId)}
+                            </span>
+                        </div>
+                        <div>${statusPill}</div>
+                        <span style="font-size: 11px; color: #888;">
                             ${timeReliable ? `Host ${formatTimestamp(sampledHostTime)} vs Guest ${formatTimestamp(guestTime)}` : `Last host ${formatTimestamp(sampledHostTime)} vs guest ${formatTimestamp(guestTime)}`} - ${statusLabel}${secondsSinceSeen === null ? "" : `, ${secondsSinceSeen}s ago`}
                         </span>
                     </div>
-                    <div style="display: flex; gap: 6px; align-items: center;">
+                    <div style="display: flex; gap: 6px; align-items: center; flex: 0 0 auto;">
                         ${
                             isStale
                                 ? `
-                            <button onclick="window.removeOfflineGuestHandler('${guestId}')"
-                                    style="padding: 6px 10px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600;">
-                                Remove
+                            <button onclick="window.removeOfflineGuestHandler('${guestId}')" title="Remove guest" aria-label="Remove guest"
+                                    style="display: inline-flex; align-items: center; justify-content: center; padding: 7px; background: rgba(244,67,54,0.15); color: #ff6b6b; border: 1px solid rgba(244,67,54,0.4); border-radius: 6px; cursor: pointer;">
+                                ${lucideIcon("trash-2", 15)}
                             </button>
                         `
                                 : ""
@@ -1712,7 +1725,7 @@
                             !isStale && !isController && !hasRequest
                                 ? `
                             <button onclick="window.delegateControlToGuest('${guestId}')"
-                                    style="padding: 6px 12px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;">
+                                    style="padding: 6px 12px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
                                 Give Control
                             </button>
                         `
@@ -1721,7 +1734,7 @@
                         ${
                             !isStale && isController && currentControllerId !== USER_ID
                                 ? `
-                            <span style="color: #4CAF50; font-size: 11px; font-weight: 600;">CONTROLLING</span>
+                            <span style="display: inline-flex; align-items: center; gap: 4px; color: #4CAF50; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; background: rgba(76,175,80,0.15); padding: 3px 8px; border-radius: 10px;">CONTROLLING</span>
                         `
                                 : ""
                         }
@@ -1735,19 +1748,19 @@
             if (!request) continue;
 
             requestsHTML += `
-                <div style="padding: 12px; border-bottom: 1px solid #333; display: flex; align-items: center; justify-content: space-between; background: rgba(255, 152, 0, 0.1);">
+                <div style="padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.07); display: flex; align-items: center; justify-content: space-between; gap: 10px; background: rgba(255, 152, 0, 0.08);">
                     <div style="flex: 1; min-width: 0;">
                         <div class="wt-ellipsis" style="font-weight: 600; color: #ff9800; font-size: 13px;">${escapeHtml(request.displayName || requesterId)}</div>
                         <div style="font-size: 11px; color: #aaa;">Requesting control</div>
                     </div>
-                    <div style="display: flex; gap: 6px;">
+                    <div style="display: flex; gap: 6px; flex: 0 0 auto;">
                         <button onclick="window.approveControlRequestHandler('${requesterId}')" title="Approve control" aria-label="Approve control"
-                                style="padding: 6px 12px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600;">
-                            ✓
+                                style="display: inline-flex; align-items: center; justify-content: center; padding: 7px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                            ${lucideIcon("check", 16)}
                         </button>
                         <button onclick="window.denyControlRequestHandler('${requesterId}')" title="Deny control" aria-label="Deny control"
-                                style="padding: 6px 12px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600;">
-                            ✗
+                                style="display: inline-flex; align-items: center; justify-content: center; padding: 7px; background: #f44336; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                            ${lucideIcon("x", 16)}
                         </button>
                     </div>
                 </div>
@@ -1766,11 +1779,11 @@
                 <button onclick="window.toggleControlPanel()" style="background: transparent; border: none; color: white; font-size: 20px; cursor: pointer; padding: 0; width: 24px; height: 24px;">×</button>
             </div>
 
-            <div style="padding: 15px; border-bottom: 2px solid #333;">
-                <div style="font-size: 13px; color: #aaa; margin-bottom: 8px;">Current Controller:</div>
+            <div style="padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+                <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: #999; margin-bottom: 8px;">Current Controller</div>
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                    <span style="font-size: 20px;">👑</span>
-                    <span style="font-weight: 600; font-size: 15px; color: #4CAF50;">${escapeHtml(controllerName)}</span>
+                    <span style="color: #FFC107; display: inline-flex;">${lucideIcon("crown", 18)}</span>
+                    <span class="wt-ellipsis" style="font-weight: 600; font-size: 15px; color: #4CAF50;">${escapeHtml(controllerName)}</span>
                 </div>
                 <div style="font-size: 12px; color: #ccc; margin-bottom: 10px;">
                     <div>Host time: ${formatTimestamp(hostTime)}</div>
@@ -1794,7 +1807,7 @@
                 requestCount > 0
                     ? `
                 <div style="background: rgba(255, 152, 0, 0.05);">
-                    <div style="padding: 12px 15px; font-weight: 600; font-size: 13px; color: #ff9800; border-bottom: 1px solid #333;">
+                    <div style="padding: 12px 15px; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: #ff9800; border-bottom: 1px solid rgba(255,255,255,0.08);">
                         Control Requests (${requestCount})
                     </div>
                     <div class="wt-scrollbar" style="max-height: 150px; overflow-y: auto;">
@@ -1809,8 +1822,8 @@
                 guestCount > 0
                     ? `
                 <div>
-                    <div style="padding: 12px 15px; font-weight: 600; font-size: 13px; color: #e0e0e0; border-bottom: 1px solid #333;">
-                        Connected Guests
+                    <div style="padding: 12px 15px; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: #e0e0e0; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 7px;">
+                        <span style="display: inline-flex; opacity: 0.8;">${lucideIcon("users", 14)}</span> Connected Guests
                     </div>
                     <div class="wt-guest-list wt-scrollbar" style="max-height: 200px; overflow-y: auto;">
                         ${guestHTML}
