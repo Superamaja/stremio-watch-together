@@ -346,6 +346,11 @@
     let bufferingObserver = null;
     let playPauseObserver = null;
     let syncInterval = null;
+    let urlMonitorInterval = null;
+    let beforeUnloadHandler = null;
+    let popstateHandler = null;
+    let serverTimeUnsubscribe = null;
+    let guestListenerUnsubscribe = null;
     let videoStateListeners = [];
     let lastSentTime = 0;
     let guestStates = {};
@@ -364,6 +369,7 @@
     let controlPanel = null;
     let isScriptActive = false;
     let isInitializationRunning = false;
+    let scriptKilled = false;
     let lastForceSyncId = null;
     let lastForceSyncAt = null;
     let controlPanelDirty = false;
@@ -383,10 +389,13 @@
         try {
             const { ref, onValue } =
                 await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
-            onValue(ref(database, ".info/serverTimeOffset"), (snapshot) => {
-                const offset = snapshot.val();
-                if (typeof offset === "number") serverTimeOffset = offset;
-            });
+            serverTimeUnsubscribe = onValue(
+                ref(database, ".info/serverTimeOffset"),
+                (snapshot) => {
+                    const offset = snapshot.val();
+                    if (typeof offset === "number") serverTimeOffset = offset;
+                },
+            );
         } catch (error) {
             console.error(
                 "HOST ERROR: Failed to monitor server time offset:",
@@ -395,21 +404,34 @@
         }
     }
 
+    async function deleteFirebaseApp() {
+        if (!app) return;
+
+        try {
+            const { deleteApp } =
+                await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js");
+            await deleteApp(app);
+        } catch (error) {
+            console.error("HOST ERROR: Failed to delete Firebase app:", error);
+        } finally {
+            app = null;
+            database = null;
+            roomRef = null;
+        }
+    }
+
     // Initialize Firebase
     async function initializeFirebase() {
         try {
             const { initializeApp } =
                 await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js");
-            const { getDatabase, ref, set, onValue } =
+            const { getDatabase, ref, set } =
                 await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
 
             // Disconnect existing app if it exists
             if (app) {
-                try {
-                    await app.delete();
-                } catch (e) {
-                    // Ignore errors when deleting app
-                }
+                cleanupRealtimeListeners();
+                await deleteFirebaseApp();
             }
 
             app = initializeApp(FIREBASE_CONFIG);
@@ -696,6 +718,50 @@
         }
     }
 
+    async function killScript() {
+        scriptKilled = true;
+        isInitializationRunning = false;
+        stopSync();
+        cleanup();
+        await cleanupRuntimeBindings();
+        console.log("HOST: Script stopped until this userscript runs again");
+    }
+
+    function cleanupRealtimeListeners() {
+        if (guestListenerUnsubscribe) {
+            guestListenerUnsubscribe();
+            guestListenerUnsubscribe = null;
+        }
+        if (serverTimeUnsubscribe) {
+            serverTimeUnsubscribe();
+            serverTimeUnsubscribe = null;
+        }
+        guestListenerReady = false;
+        serverTimeMonitored = false;
+    }
+
+    async function cleanupRuntimeBindings() {
+        cleanupRealtimeListeners();
+
+        if (urlMonitorInterval) {
+            clearInterval(urlMonitorInterval);
+            urlMonitorInterval = null;
+        }
+        if (beforeUnloadHandler) {
+            window.removeEventListener("beforeunload", beforeUnloadHandler);
+            beforeUnloadHandler = null;
+        }
+        if (popstateHandler) {
+            window.removeEventListener("popstate", popstateHandler);
+            popstateHandler = null;
+        }
+
+        delete window.testGuestBufferingIcon;
+        delete window.testGuestBufferingState;
+
+        await deleteFirebaseApp();
+    }
+
     function toggleSettingsPopup() {
         if (settingsPopup) {
             hideSettingsPopup();
@@ -782,9 +848,12 @@
                     <button id="copyRoomId" title="Copy Room ID" style="width: 46px; border: none; border-radius: 8px; background: #444; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center;">${lucideIcon("clipboard-copy", 20)}</button>
                 </div>
 
-                <div style="display: flex; justify-content: space-between; gap: 12px;">
-                    <button id="clearConfig" style="padding: 11px 14px; background: #666; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;">Clear Local</button>
-                    <div style="display: flex; gap: 10px;">
+                <div style="display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button id="killScript" title="Stop Watch Together until the userscript runs again" style="padding: 11px 14px; background: #8b1e1e; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700;">Stop Script</button>
+                        <button id="clearConfig" style="padding: 11px 14px; background: #666; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;">Clear Local</button>
+                    </div>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-left: auto;">
                         <button id="cancelSettings" style="padding: 11px 14px; background: #666; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;">Cancel</button>
                         <button id="saveSettings" style="padding: 11px 16px; background: linear-gradient(135deg, #FF6B35 0%, #ff8c42 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700;">Save</button>
                     </div>
@@ -805,6 +874,9 @@
         document
             .getElementById("clearConfig")
             .addEventListener("click", clearAllSettings);
+        document
+            .getElementById("killScript")
+            .addEventListener("click", killScript);
         document
             .getElementById("copyRoomId")
             .addEventListener("click", () =>
@@ -1284,7 +1356,11 @@
             const { onValue } =
                 await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
 
-            onValue(roomRef, (snapshot) => {
+            if (guestListenerUnsubscribe) {
+                guestListenerUnsubscribe();
+            }
+
+            guestListenerUnsubscribe = onValue(roomRef, (snapshot) => {
                 const data = snapshot.val();
 
                 // Handle guests
@@ -2155,9 +2231,18 @@
 
     // Cleanup function
     function cleanup() {
-        if (syncInterval) clearInterval(syncInterval);
-        if (playPauseObserver) playPauseObserver.disconnect();
-        if (bufferingObserver) bufferingObserver.disconnect();
+        if (syncInterval) {
+            clearInterval(syncInterval);
+            syncInterval = null;
+        }
+        if (playPauseObserver) {
+            playPauseObserver.disconnect();
+            playPauseObserver = null;
+        }
+        if (bufferingObserver) {
+            bufferingObserver.disconnect();
+            bufferingObserver = null;
+        }
         if (videoElement) {
             for (const { eventName, listener } of videoStateListeners) {
                 videoElement.removeEventListener(eventName, listener);
@@ -2167,6 +2252,9 @@
         if (watchTogetherButton) watchTogetherButton.remove();
         if (settingsButton) settingsButton.remove();
         if (controlPanel) controlPanel.remove();
+        watchTogetherButton = null;
+        settingsButton = null;
+        controlPanel = null;
         hideSettingsPopup();
 
         const existingStatus = document.querySelector(".guest-status-display");
@@ -2178,7 +2266,12 @@
 
         hideGuestBufferingStatus();
         hideGuestBufferingIcon();
+        cleanupRealtimeListeners();
 
+        videoElement = null;
+        playPauseButton = null;
+        controlBar = null;
+        watchTogetherEnabled = false;
         isScriptActive = false;
         console.log("HOST: Cleanup complete");
     }
@@ -2280,7 +2373,8 @@
     }
 
     // Handle page unload
-    window.addEventListener("beforeunload", cleanup);
+    beforeUnloadHandler = cleanup;
+    window.addEventListener("beforeunload", beforeUnloadHandler);
 
     // Test function for guest buffering icon
     window.testGuestBufferingIcon = function () {
@@ -2362,6 +2456,8 @@
     let lastUrl = window.location.href;
 
     async function checkUrlAndManageState() {
+        if (scriptKilled) return;
+
         const currentUrl = window.location.href;
         const isPlayerPage = currentUrl.includes("#/player/");
 
@@ -2398,13 +2494,14 @@
 
     // Interval to check for URL changes (robust for SPA)
     // Check every 1 second
-    setInterval(checkUrlAndManageState, 1000);
+    urlMonitorInterval = setInterval(checkUrlAndManageState, 1000);
 
     // Initial check
     checkUrlAndManageState();
 
     // Also listen for popstate just in case
-    window.addEventListener("popstate", () => {
+    popstateHandler = () => {
         setTimeout(checkUrlAndManageState, 100);
-    });
+    };
+    window.addEventListener("popstate", popstateHandler);
 })();

@@ -314,6 +314,14 @@
     let lastKnownHostState = null;
     let isFollowingHost = false;
     let bufferingObserver = null;
+    let urlMonitorInterval = null;
+    let beforeUnloadHandler = null;
+    let popstateHandler = null;
+    let serverTimeUnsubscribe = null;
+    let connectionUnsubscribe = null;
+    let hostListenerUnsubscribe = null;
+    let stateInterval = null;
+    let heartbeatInterval = null;
     let videoStateListeners = [];
     let isGuestBuffering = false;
     let lastGuestStateSent = 0;
@@ -322,6 +330,7 @@
     let requestControlButton = null;
     let isScriptActive = false;
     let isInitializationRunning = false;
+    let scriptKilled = false;
     let lastAppliedForceSyncId = null;
     let lastReportedPlaybackState = null;
     let needsInitialSync = false;
@@ -355,15 +364,34 @@
         try {
             const { ref, onValue } =
                 await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
-            onValue(ref(database, ".info/serverTimeOffset"), (snapshot) => {
-                const offset = snapshot.val();
-                if (typeof offset === "number") serverTimeOffset = offset;
-            });
+            serverTimeUnsubscribe = onValue(
+                ref(database, ".info/serverTimeOffset"),
+                (snapshot) => {
+                    const offset = snapshot.val();
+                    if (typeof offset === "number") serverTimeOffset = offset;
+                },
+            );
         } catch (error) {
             console.error(
                 "GUEST ERROR: Failed to monitor server time offset:",
                 error,
             );
+        }
+    }
+
+    async function deleteFirebaseApp() {
+        if (!app) return;
+
+        try {
+            const { deleteApp } =
+                await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js");
+            await deleteApp(app);
+        } catch (error) {
+            console.error("GUEST ERROR: Failed to delete Firebase app:", error);
+        } finally {
+            app = null;
+            database = null;
+            roomRef = null;
         }
     }
 
@@ -377,11 +405,8 @@
 
             // Disconnect existing app if it exists
             if (app) {
-                try {
-                    await app.delete();
-                } catch (e) {
-                    // Ignore errors when deleting app
-                }
+                cleanupRealtimeListeners();
+                await deleteFirebaseApp();
             }
 
             app = initializeApp(FIREBASE_CONFIG);
@@ -628,6 +653,54 @@
         }
     }
 
+    async function killScript() {
+        scriptKilled = true;
+        isInitializationRunning = false;
+        stopFollowingHost();
+        cleanup();
+        await cleanupRuntimeBindings();
+        console.log("GUEST: Script stopped until this userscript runs again");
+    }
+
+    function cleanupRealtimeListeners() {
+        if (hostListenerUnsubscribe) {
+            hostListenerUnsubscribe();
+            hostListenerUnsubscribe = null;
+        }
+        if (connectionUnsubscribe) {
+            connectionUnsubscribe();
+            connectionUnsubscribe = null;
+        }
+        if (serverTimeUnsubscribe) {
+            serverTimeUnsubscribe();
+            serverTimeUnsubscribe = null;
+        }
+
+        monitoredDatabase = null;
+        serverTimeMonitored = false;
+        wasConnected = null;
+        hasLostConnection = false;
+    }
+
+    async function cleanupRuntimeBindings() {
+        cleanupRealtimeListeners();
+
+        if (urlMonitorInterval) {
+            clearInterval(urlMonitorInterval);
+            urlMonitorInterval = null;
+        }
+        if (beforeUnloadHandler) {
+            window.removeEventListener("beforeunload", beforeUnloadHandler);
+            beforeUnloadHandler = null;
+        }
+        if (popstateHandler) {
+            window.removeEventListener("popstate", popstateHandler);
+            popstateHandler = null;
+        }
+
+        await deleteFirebaseApp();
+    }
+
     function toggleSettingsPopup() {
         if (settingsPopup) {
             hideSettingsPopup();
@@ -714,9 +787,12 @@
                     <button id="copyRoomId" title="Copy Room ID" style="width: 46px; border: none; border-radius: 8px; background: #444; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center;">${lucideIcon("clipboard-copy", 20)}</button>
                 </div>
 
-                <div style="display: flex; justify-content: space-between; gap: 12px;">
-                    <button id="clearConfig" style="padding: 11px 14px; background: #666; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;">Clear Local</button>
-                    <div style="display: flex; gap: 10px;">
+                <div style="display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button id="killScript" title="Stop Watch Together until the userscript runs again" style="padding: 11px 14px; background: #8b1e1e; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700;">Stop Script</button>
+                        <button id="clearConfig" style="padding: 11px 14px; background: #666; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;">Clear Local</button>
+                    </div>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-left: auto;">
                         <button id="cancelSettings" style="padding: 11px 14px; background: #666; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;">Cancel</button>
                         <button id="saveSettings" style="padding: 11px 16px; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700;">Save</button>
                     </div>
@@ -737,6 +813,9 @@
         document
             .getElementById("clearConfig")
             .addEventListener("click", clearAllSettings);
+        document
+            .getElementById("killScript")
+            .addEventListener("click", killScript);
         document
             .getElementById("copyRoomId")
             .addEventListener("click", () =>
@@ -1388,7 +1467,11 @@
             const { ref, onValue } =
                 await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
             const connectedRef = ref(database, ".info/connected");
-            onValue(connectedRef, (snapshot) => {
+            if (connectionUnsubscribe) {
+                connectionUnsubscribe();
+            }
+
+            connectionUnsubscribe = onValue(connectedRef, (snapshot) => {
                 const connected = snapshot.val() === true;
                 if (!connected && wasConnected === true) {
                     hasLostConnection = true;
@@ -1414,7 +1497,11 @@
             const { onValue } =
                 await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
 
-            onValue(roomRef, (snapshot) => {
+            if (hostListenerUnsubscribe) {
+                hostListenerUnsubscribe();
+            }
+
+            hostListenerUnsubscribe = onValue(roomRef, (snapshot) => {
                 const data = snapshot.val();
 
                 if (
@@ -1632,7 +1719,8 @@
         registerGuestInRoom();
 
         // Send state updates every 2 seconds
-        const stateInterval = setInterval(() => {
+        if (stateInterval) clearInterval(stateInterval);
+        stateInterval = setInterval(() => {
             if (isFollowingHost) {
                 sendGuestState();
             } else {
@@ -1641,7 +1729,8 @@
         }, 2000);
 
         // Send heartbeat every 10 seconds
-        const heartbeatInterval = setInterval(() => {
+        if (heartbeatInterval) clearInterval(heartbeatInterval);
+        heartbeatInterval = setInterval(() => {
             if (isFollowingHost) {
                 sendHeartbeat();
             } else {
@@ -1747,6 +1836,14 @@
         isFollowingHost = false;
         hostClockTime = null;
         pendingControlRequest = false;
+        if (stateInterval) {
+            clearInterval(stateInterval);
+            stateInterval = null;
+        }
+        if (heartbeatInterval) {
+            clearInterval(heartbeatInterval);
+            heartbeatInterval = null;
+        }
         hideHostStatus();
         hideHostBufferingIcon();
 
@@ -1766,18 +1863,21 @@
 
     // Remove this guest's entry from the Firebase database
     function removeGuestFromDatabase() {
-        if (!roomRef) return;
+        if (!roomRef || !database) return;
+
+        const guestRoomRef = roomRef;
+        const guestDatabase = database;
+        const guestPath = `rooms/${ROOM_ID}/guests/${USER_ID}`;
+
         import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js").then(
             ({ update, ref, onDisconnect }) => {
                 // Cancel the armed disconnect handler since we're leaving cleanly.
                 try {
-                    onDisconnect(
-                        ref(database, `rooms/${ROOM_ID}/guests/${USER_ID}`),
-                    ).cancel();
+                    onDisconnect(ref(guestDatabase, guestPath)).cancel();
                 } catch (error) {
                     // Ignore - the disconnect handler may not be set
                 }
-                update(roomRef, {
+                update(guestRoomRef, {
                     ["guests/" + USER_ID]: null,
                 }).catch(() => {
                     // Ignore removal errors
@@ -1791,6 +1891,9 @@
         if (watchTogetherButton) watchTogetherButton.remove();
         if (requestControlButton) requestControlButton.remove();
         if (settingsButton) settingsButton.remove();
+        watchTogetherButton = null;
+        requestControlButton = null;
+        settingsButton = null;
         hideSettingsPopup();
         hideHostStatus();
         hideHostBufferingIcon();
@@ -1806,7 +1909,12 @@
         videoStateListeners = [];
 
         removeGuestFromDatabase();
+        cleanupRealtimeListeners();
 
+        videoElement = null;
+        playPauseButton = null;
+        controlBar = null;
+        watchTogetherEnabled = false;
         isScriptActive = false;
         console.log("GUEST: Cleanup complete");
     }
@@ -1932,7 +2040,8 @@
     }
 
     // Handle page unload
-    window.addEventListener("beforeunload", cleanup);
+    beforeUnloadHandler = cleanup;
+    window.addEventListener("beforeunload", beforeUnloadHandler);
 
     // Wait for page to be fully loaded before initializing
     function waitForPageLoad() {
@@ -1971,6 +2080,8 @@
     let lastUrl = window.location.href;
 
     async function checkUrlAndManageState() {
+        if (scriptKilled) return;
+
         const currentUrl = window.location.href;
         const onPlayer = isPlayerPage();
         const onWatchTogether = isWatchTogetherPage();
@@ -2012,13 +2123,14 @@
 
     // Interval to check for URL changes (robust for SPA)
     // Check every 1 second
-    setInterval(checkUrlAndManageState, 1000);
+    urlMonitorInterval = setInterval(checkUrlAndManageState, 1000);
 
     // Initial check
     checkUrlAndManageState();
 
     // Also listen for popstate just in case
-    window.addEventListener("popstate", () => {
+    popstateHandler = () => {
         setTimeout(checkUrlAndManageState, 100);
-    });
+    };
+    window.addEventListener("popstate", popstateHandler);
 })();
