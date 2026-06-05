@@ -338,6 +338,7 @@
     let playPauseButton = null;
     let controlBar = null;
     let watchTogetherButton = null;
+    let controlPanelButton = null;
     let settingsButton = null;
     let settingsPopup = null;
     let settingsBackdrop = null;
@@ -353,6 +354,10 @@
     let guestBufferingSince = {};
     let guestStuckNotified = {};
     const STUCK_BUFFERING_MS = 8000;
+    // Guest drift thresholds (seconds): up to SLIGHT is "in sync", up to LARGE
+    // is slight drift, beyond LARGE is large/actionable drift.
+    const DRIFT_SLIGHT_S = 1;
+    const DRIFT_LARGE_S = 3;
     let isAnyGuestBuffering = false;
     let currentControllerId = null;
     let controlRequests = {};
@@ -529,6 +534,63 @@
         console.log("HOST: Watch Together button created");
     }
 
+    // Visual themes for the control panel toggle button, keyed by the worst
+    // guest drift level. Thresholds (DRIFT_SLIGHT_S / DRIFT_LARGE_S) mirror the
+    // guest drift pills in getDriftInfo.
+    const CONTROL_PANEL_BUTTON_THEMES = {
+        none: {
+            color: "#fff",
+            borderColor: "rgba(255, 255, 255, 0.22)",
+            background: "rgba(10, 12, 16, 0.56)",
+            boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.08)",
+            title: "Watch Together Control Panel",
+        },
+        slight: {
+            color: "#ff9800",
+            borderColor: "rgba(255, 152, 0, 0.7)",
+            background: "rgba(255, 152, 0, 0.16)",
+            boxShadow:
+                "inset 0 0 0 1px rgba(255, 152, 0, 0.25), 0 0 12px rgba(255, 152, 0, 0.45)",
+            title: "Watch Together Control Panel - Guest drift detected",
+        },
+        large: {
+            color: "#f44336",
+            borderColor: "rgba(244, 67, 54, 0.8)",
+            background: "rgba(244, 67, 54, 0.18)",
+            boxShadow:
+                "inset 0 0 0 1px rgba(244, 67, 54, 0.3), 0 0 14px rgba(244, 67, 54, 0.55)",
+            title: "Watch Together Control Panel - Large guest drift detected",
+        },
+    };
+
+    // Worst drift level across online, time-reliable guests: "none" | "slight" | "large".
+    function getWorstGuestDriftLevel() {
+        let level = "none";
+        for (const [guestId, guest] of Object.entries(guestStates)) {
+            if (!guest || guest.timeReliable === false || isGuestStale(guest))
+                continue;
+            const driftInfo = guestDriftSnapshots[guestId]?.driftInfo;
+            if (!driftInfo) continue;
+            if (driftInfo.absoluteDrift > DRIFT_LARGE_S) return "large";
+            if (driftInfo.absoluteDrift > DRIFT_SLIGHT_S) level = "slight";
+        }
+        return level;
+    }
+
+    // Recolor the toggle button to reflect guest drift, even while the panel is
+    // closed, so the host knows at a glance when guests have fallen out of sync.
+    function updateControlPanelButtonStatus() {
+        if (!controlPanelButton) return;
+        const theme =
+            CONTROL_PANEL_BUTTON_THEMES[getWorstGuestDriftLevel()] ||
+            CONTROL_PANEL_BUTTON_THEMES.none;
+        controlPanelButton.style.color = theme.color;
+        controlPanelButton.style.borderColor = theme.borderColor;
+        controlPanelButton.style.background = theme.background;
+        controlPanelButton.style.boxShadow = theme.boxShadow;
+        controlPanelButton.title = theme.title;
+    }
+
     // Create Control Panel toggle button
     function createControlPanelButton() {
         const existingButton = document.querySelector(
@@ -563,6 +625,8 @@
 
         controlBar.appendChild(panelButton);
         panelButton.addEventListener("click", toggleControlPanel);
+        controlPanelButton = panelButton;
+        updateControlPanelButtonStatus();
 
         console.log("HOST: Control panel button created");
     }
@@ -943,9 +1007,9 @@
         const drift = (guestTime || 0) - hostTime;
         const absoluteDrift = Math.abs(drift);
         const color =
-            absoluteDrift <= 1
+            absoluteDrift <= DRIFT_SLIGHT_S
                 ? "#4CAF50"
-                : absoluteDrift <= 3
+                : absoluteDrift <= DRIFT_LARGE_S
                   ? "#ff9800"
                   : "#f44336";
         const label =
@@ -1232,6 +1296,7 @@
 
                 guestStates = newGuests;
                 updateGuestDriftSnapshots(guestStates);
+                updateControlPanelButtonStatus();
                 checkGuestBuffering();
                 checkStuckBuffering();
                 showGuestStatus(guestCount);
@@ -1690,7 +1755,7 @@
                 return false;
             return (
                 (guestDriftSnapshots[guestId]?.driftInfo?.absoluteDrift || 0) >
-                3
+                DRIFT_LARGE_S
             );
         });
         const forceSyncButtonLabel = hasActionableDrift
