@@ -373,7 +373,7 @@
         try {
             const { initializeApp } =
                 await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js");
-            const { getDatabase, ref, update, onValue } =
+            const { getDatabase, ref } =
                 await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
 
             // Disconnect existing app if it exists
@@ -390,25 +390,6 @@
             roomRef = ref(database, "rooms/" + ROOM_ID);
 
             console.log("GUEST: Firebase initialized for room:", ROOM_ID);
-            const playbackState = getGuestPlaybackSnapshot();
-
-            // Register as guest in the room
-            await update(roomRef, {
-                ["guests/" + USER_ID]: {
-                    userId: USER_ID,
-                    displayName: DISPLAY_NAME,
-                    currentTime: playbackState.currentTime,
-                    isPlaying: playbackState.isPlaying,
-                    isBuffering: playbackState.isBuffering,
-                    duration: playbackState.duration,
-                    timeReliable: playbackState.timeReliable,
-                    connected: true,
-                    lastSeen: playbackState.lastSeen,
-                    lastUpdated: playbackState.lastUpdated,
-                },
-            });
-
-            console.log("GUEST: Registered in room");
             return true;
         } catch (error) {
             console.error(
@@ -1487,9 +1468,35 @@
         }
     }
 
+    // Register this guest in the Firebase room
+    async function registerGuestInRoom() {
+        if (!roomRef) return;
+        const { update } =
+            await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
+        const playbackState = getGuestPlaybackSnapshot();
+        await update(roomRef, {
+            ["guests/" + USER_ID]: {
+                userId: USER_ID,
+                displayName: DISPLAY_NAME,
+                currentTime: playbackState.currentTime,
+                isPlaying: playbackState.isPlaying,
+                isBuffering: playbackState.isBuffering,
+                duration: playbackState.duration,
+                timeReliable: playbackState.timeReliable,
+                connected: true,
+                lastSeen: playbackState.lastSeen,
+                lastUpdated: playbackState.lastUpdated,
+            },
+        });
+        console.log("GUEST: Registered in room");
+    }
+
     // Start following host
     function startFollowingHost() {
         isFollowingHost = true;
+
+        // Register in the room now that the guest has chosen to sync
+        registerGuestInRoom();
 
         // Send state updates every 2 seconds
         const stateInterval = setInterval(() => {
