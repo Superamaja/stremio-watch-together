@@ -1265,8 +1265,8 @@
             position: fixed;
             top: 20px;
             right: 20px;
-            width: 30px;
-            height: 30px;
+            width: 36px;
+            height: 36px;
             z-index: 10000;
             pointer-events: none;
             background: rgba(0, 0, 0, 0.8);
@@ -1278,10 +1278,10 @@
 
         loadingIcon.innerHTML = `
             <div style="
-                width: 20px;
-                height: 20px;
-                border: 2px solid rgba(255, 107, 53, 0.3);
-                border-top: 2px solid #FF6B35;
+                width: 24px;
+                height: 24px;
+                border: 3px solid rgba(255, 107, 53, 0.3);
+                border-top: 3px solid #FF6B35;
                 border-radius: 50%;
                 animation: spin 1s linear infinite;
             "></div>
