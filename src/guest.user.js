@@ -1,18 +1,3 @@
-// ==UserScript==
-// @name         Stremio Watch Together - Guest
-// @namespace    https://stremio.com
-// @version      1.0.2
-// @description  Watch Together Guest Script for Stremio Web Player
-// @author       Sagar Chaulagain
-// @updateURL    https://github.com/sagarchaulagai/stremio-watch-together/raw/refs/heads/master/guest.user.js
-// @downloadURL  https://github.com/sagarchaulagai/stremio-watch-together/raw/refs/heads/master/guest.user.js
-// @match        https://web.stremio.com/*
-// @match        https://web.stremio.com/
-// @match        https://web.stremio.com/#*
-// @grant        none
-// @run-at       document-idle
-// ==/UserScript==
-
 (function () {
     "use strict";
 
