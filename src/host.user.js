@@ -1271,6 +1271,22 @@
         }
     }
 
+    function getGuestDisplayName(guest, fallback = "Guest") {
+        return guest?.displayName || fallback;
+    }
+
+    function getBufferingPauseMessage(bufferingGuests) {
+        const [firstGuest] = bufferingGuests;
+        const firstGuestName = getGuestDisplayName(firstGuest);
+        const remainingCount = bufferingGuests.length - 1;
+
+        if (remainingCount <= 0) {
+            return `Paused because ${firstGuestName} is buffering`;
+        }
+
+        return `Paused because ${firstGuestName} + ${remainingCount} more are buffering`;
+    }
+
     // Check if any guests are buffering
     function checkGuestBuffering() {
         console.log("🔍 HOST: Checking guest buffering states:", guestStates);
@@ -1304,8 +1320,14 @@
         if (isAnyGuestBuffering && !wasAnyBuffering) {
             // At least one guest started buffering - pause host video
             console.log("HOST: Guest(s) buffering - pausing video");
-            if (getPlayState() && playPauseButton) {
+            const wasPlaying = getPlayState();
+            if (wasPlaying && playPauseButton) {
                 playPauseButton.click();
+                showNotification(
+                    getBufferingPauseMessage(bufferingGuests),
+                    "#ff9800",
+                    5000,
+                );
             }
             showGuestBufferingStatus(bufferingGuests.length);
             showGuestBufferingIcon(bufferingGuests.length);
