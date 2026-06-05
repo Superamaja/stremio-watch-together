@@ -823,6 +823,7 @@
             updateSyncButtonState();
             console.log("GUEST: Watch Together DISABLED");
             stopFollowingHost();
+            removeGuestFromDatabase();
             updateRequestControlButton();
         }
     }
@@ -1582,6 +1583,20 @@
         console.log("GUEST: Stopped following host");
     }
 
+    // Remove this guest's entry from the Firebase database
+    function removeGuestFromDatabase() {
+        if (!roomRef) return;
+        import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js").then(
+            ({ update }) => {
+                update(roomRef, {
+                    ["guests/" + USER_ID]: null,
+                }).catch(() => {
+                    // Ignore removal errors
+                });
+            },
+        );
+    }
+
     // Cleanup function
     function cleanup() {
         if (watchTogetherButton) watchTogetherButton.remove();
@@ -1601,18 +1616,7 @@
         }
         videoStateListeners = [];
 
-        // Unregister from room
-        if (roomRef) {
-            import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js").then(
-                ({ update }) => {
-                    update(roomRef, {
-                        ["guests/" + USER_ID]: null,
-                    }).catch(() => {
-                        // Ignore cleanup errors
-                    });
-                },
-            );
-        }
+        removeGuestFromDatabase();
 
         isScriptActive = false;
         console.log("GUEST: Cleanup complete");
