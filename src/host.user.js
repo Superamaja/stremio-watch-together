@@ -831,6 +831,15 @@
         };
         document.addEventListener("keydown", settingsEscHandler);
 
+        // Keep keystrokes inside the dialog so Stremio's player shortcuts
+        // (space, arrows, etc.) don't fire while typing in the settings.
+        ["keydown", "keyup", "keypress"].forEach((evt) => {
+            settingsPopup.addEventListener(evt, (e) => {
+                e.stopPropagation();
+                if (evt === "keydown" && e.key === "Escape") hideSettingsPopup();
+            });
+        });
+
         document.getElementById("displayNameInput").focus();
 
         console.log("HOST: Settings popup shown");
