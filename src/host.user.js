@@ -1450,6 +1450,31 @@
         }
     }
 
+    // Remove an offline guest from the database and local state
+    async function removeOfflineGuest(guestUserId) {
+        if (!roomRef) return;
+
+        try {
+            const { update } =
+                await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
+
+            await update(roomRef, {
+                [`guests/${guestUserId}`]: null,
+                [`permissions/controlRequests/${guestUserId}`]: null,
+            });
+
+            delete guestStates[guestUserId];
+            delete guestDriftSnapshots[guestUserId];
+            delete controlRequests[guestUserId];
+            updateControlPanel();
+
+            console.log("HOST: Removed offline guest", guestUserId);
+        } catch (error) {
+            console.error("HOST ERROR: Failed to remove guest:", error);
+            showNotification("Failed to remove guest", "#f44336");
+        }
+    }
+
     // Create control panel UI
     function createControlPanel() {
         if (controlPanel) {
@@ -1562,11 +1587,21 @@
                             ${timeReliable ? `Host ${formatTimestamp(sampledHostTime)} vs Guest ${formatTimestamp(guestTime)}` : `Last host ${formatTimestamp(sampledHostTime)} vs guest ${formatTimestamp(guestTime)}`} - ${statusLabel}${secondsSinceSeen === null ? "" : `, ${secondsSinceSeen}s ago`}
                         </span>
                     </div>
-                    <div>
+                    <div style="display: flex; gap: 6px; align-items: center;">
                         ${
-                            !isController && !hasRequest
+                            isStale
                                 ? `
-                            <button onclick="window.delegateControlToGuest('${guestId}', '${guest.displayName}')" 
+                            <button onclick="window.removeOfflineGuestHandler('${guestId}')"
+                                    style="padding: 6px 10px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600;">
+                                Remove
+                            </button>
+                        `
+                                : ""
+                        }
+                        ${
+                            !isStale && !isController && !hasRequest
+                                ? `
+                            <button onclick="window.delegateControlToGuest('${guestId}', '${guest.displayName}')"
                                     style="padding: 6px 12px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;">
                                 Give Control
                             </button>
@@ -1574,7 +1609,7 @@
                                 : ""
                         }
                         ${
-                            isController && currentControllerId !== USER_ID
+                            !isStale && isController && currentControllerId !== USER_ID
                                 ? `
                             <span style="color: #4CAF50; font-size: 11px; font-weight: 600;">CONTROLLING</span>
                         `
@@ -1710,6 +1745,7 @@
     window.takeBackControlHandler = takeBackControl;
     window.approveControlRequestHandler = approveControlRequest;
     window.denyControlRequestHandler = denyControlRequest;
+    window.removeOfflineGuestHandler = removeOfflineGuest;
     window.toggleControlPanel = toggleControlPanel;
     window.forceSyncGuestsHandler = forceSyncGuests;
 
