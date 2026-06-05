@@ -13,9 +13,11 @@ export default [
       globals: {
         ...globals.browser,
         __DEFAULT_FIREBASE_CONFIG__: "readonly",
+        __LUCIDE_ICONS__: "readonly",
       },
     },
     rules: {
+      "no-redeclare": "off",
       "no-useless-escape": "off",
       "no-unused-vars": [
         "warn",

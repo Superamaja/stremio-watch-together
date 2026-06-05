@@ -5,6 +5,20 @@ import { fileURLToPath } from "node:url";
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const envPath = path.join(rootDir, ".env");
+const lucideIconDir = path.join(rootDir, "node_modules", "lucide-static", "icons");
+const lucideIconNames = [
+  "badge-check",
+  "clipboard-copy",
+  "circle-question-mark",
+  "link-2",
+  "mouse-pointer-click",
+  "refresh-ccw-dot",
+  "refresh-cw",
+  "radio-receiver",
+  "settings",
+  "sliders-horizontal",
+  "wifi-sync",
+];
 const firebaseConfigFields = {
   apiKey: "FIREBASE_API_KEY",
   authDomain: "FIREBASE_AUTH_DOMAIN",
@@ -51,6 +65,20 @@ async function loadEnv() {
   }
 }
 
+async function loadLucideIcons() {
+  const icons = {};
+
+  for (const iconName of lucideIconNames) {
+    const svg = await readFile(path.join(lucideIconDir, `${iconName}.svg`), "utf8");
+    icons[iconName] = svg
+      .replace(/<svg[^>]*>/, "")
+      .replace("</svg>", "")
+      .trim();
+  }
+
+  return icons;
+}
+
 function buildFirebaseConfig(env) {
   return Object.fromEntries(
     Object.entries(firebaseConfigFields).map(([configKey, envKey]) => [
@@ -60,16 +88,15 @@ function buildFirebaseConfig(env) {
   );
 }
 
-async function buildUserscript(inputName, outputName, firebaseConfig) {
+async function buildUserscript(inputName, outputName, firebaseConfig, lucideIcons) {
   const inputPath = path.join(rootDir, "src", inputName);
   const outputPath = path.join(rootDir, outputName);
   const source = await readFile(inputPath, "utf8");
-  const output = source.replace(
-    "__DEFAULT_FIREBASE_CONFIG__",
-    JSON.stringify(firebaseConfig, null, 8),
-  );
+  const output = source
+    .replace("__DEFAULT_FIREBASE_CONFIG__", JSON.stringify(firebaseConfig, null, 8))
+    .replace("__LUCIDE_ICONS__", JSON.stringify(lucideIcons, null, 8));
 
-  if (output === source) {
+  if (output.includes("__DEFAULT_FIREBASE_CONFIG__") || output.includes("__LUCIDE_ICONS__")) {
     throw new Error(`Build token not found in ${inputName}`);
   }
 
@@ -79,6 +106,7 @@ async function buildUserscript(inputName, outputName, firebaseConfig) {
 
 const env = await loadEnv();
 const firebaseConfig = buildFirebaseConfig(env);
+const lucideIcons = await loadLucideIcons();
 
-await buildUserscript("host.user.js", "host.user.js", firebaseConfig);
-await buildUserscript("guest.user.js", "guest.user.js", firebaseConfig);
+await buildUserscript("host.user.js", "host.user.js", firebaseConfig, lucideIcons);
+await buildUserscript("guest.user.js", "guest.user.js", firebaseConfig, lucideIcons);

@@ -30,6 +30,12 @@
     const DEFAULT_FIREBASE_CONFIG = __DEFAULT_FIREBASE_CONFIG__;
 
     let firebaseConfig = { ...DEFAULT_FIREBASE_CONFIG };
+    const LUCIDE_ICONS = __LUCIDE_ICONS__;
+
+    function lucideIcon(iconName, size = 24) {
+        const icon = LUCIDE_ICONS[iconName] || LUCIDE_ICONS["circle-question-mark"] || "";
+        return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${icon}</svg>`;
+    }
 
     // Configuration Management
     const CONFIG_STORAGE_KEY = "stremio_watch_together_config";
@@ -278,10 +284,10 @@
             <div style="text-align: center; max-width: 500px; padding: 40px; background: rgba(76, 175, 80, 0.1); border: 2px solid #4CAF50; border-radius: 10px;">
                 <h2 style="color: #4CAF50; margin: 0 0 20px 0;">Firebase Configuration Required</h2>
                 <p style="font-size: 1.1em; margin: 0 0 20px 0; line-height: 1.5;">
-                    To use Watch Together, you need to configure your Firebase settings first.
+                    This generated userscript does not include Firebase defaults yet.
                 </p>
                 <p style="margin: 0 0 30px 0; opacity: 0.9;">
-                    Click the settings button (gear icon) next to the Watch Together button to configure Firebase.
+                    Add your Firebase values to .env, run pnpm run build, then reinstall the generated guest script.
                 </p>
                 <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
                     <button id="openSettings" style="
@@ -293,7 +299,7 @@
                         cursor: pointer;
                         font-size: 1em;
                         font-weight: bold;
-                    ">Open Settings</button>
+                    ">Room Settings</button>
                     <button id="closeMessage" style="
                         background: #666;
                         color: white;
@@ -305,7 +311,7 @@
                     ">Close</button>
                 </div>
                 <div style="margin-top: 20px; font-size: 0.9em; opacity: 0.8;">
-                    <p>You'll need to create a Firebase project and get your configuration values.</p>
+                    <p>Room settings are still available, but Firebase is configured at build time.</p>
                 </div>
             </div>
         `;
@@ -463,22 +469,28 @@
         watchTogetherButton = document.createElement("div");
         watchTogetherButton.className =
             "control-bar-button-FQUsj button-container-zVLH6";
-        watchTogetherButton.title = "Watch Together (GUEST)";
+        watchTogetherButton.title = "Sync Off - click to follow host";
         watchTogetherButton.style.cssText = `
             cursor: pointer;
-            border: 2px solid #4CAF50;
-            border-radius: 4px;
-            background: rgba(76, 175, 80, 0.1);
+            width: 42px;
+            height: 42px;
+            min-width: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            border-radius: 6px;
+            background: rgba(10, 12, 16, 0.56);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(8px);
         `;
 
-        watchTogetherButton.innerHTML = `
-            <svg class="icon-qy6I6" viewBox="0 0 24 24" style="width:24px;height:24px;">
-                <path d="M12 2C6.48 2 2 6.03 2 10.5c0 2.85 1.83 5.35 4.61 6.85L5 22l5.25-2.72c.55.08 1.12.12 1.75.12 5.52 0 10-4.03 10-8.9C22 6.03 17.52 2 12 2zm0 15.5c-.56 0-1.12-.05-1.63-.15l-.6-.12-.53.28-.7.36.14-.77.1-.57-.48-.31C6.87 15.3 5.5 13.04 5.5 10.5 5.5 7.47 8.4 5 12 5s6.5 2.47 6.5 5.5-2.9 5.5-6.5 5.5z" fill="currentColor"/>
-            </svg>
-        `;
+        watchTogetherButton.innerHTML = lucideIcon("wifi-sync", 22);
 
         controlBar.appendChild(watchTogetherButton);
         watchTogetherButton.addEventListener("click", toggleWatchTogether);
+        updateSyncButtonState();
 
         console.log("GUEST: Watch Together button created");
     }
@@ -492,19 +504,23 @@
         requestControlButton = document.createElement("div");
         requestControlButton.className =
             "control-bar-button-FQUsj button-container-zVLH6 request-control-button";
-        requestControlButton.title = "Request Control";
+        requestControlButton.title = "Request Playback Control";
         requestControlButton.style.cssText = `
             cursor: pointer;
-            border: 2px solid #9C27B0;
-            border-radius: 8px;
-            background: linear-gradient(135deg, rgba(156, 39, 176, 0.15) 0%, rgba(156, 39, 176, 0.25) 100%);
-            margin-left: 5px;
+            width: 42px;
+            height: 42px;
+            min-width: 42px;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            border-radius: 6px;
+            background: rgba(10, 12, 16, 0.56);
+            margin-left: 4px;
             display: flex;
             position: relative;
             overflow: hidden;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 2px 8px rgba(156, 39, 176, 0.2);
-            backdrop-filter: blur(10px);
+            transition: background 0.16s ease, border-color 0.16s ease;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(8px);
             justify-content: center;
             align-items: center;
         `;
@@ -513,14 +529,11 @@
         const style = document.createElement("style");
         style.textContent = `
             .request-control-button:hover {
-                border-color: #E91E63 !important;
-                background: linear-gradient(135deg, rgba(233, 30, 99, 0.2) 0%, rgba(233, 30, 99, 0.35) 100%) !important;
-                box-shadow: 0 4px 16px rgba(233, 30, 99, 0.4) !important;
-                transform: translateY(-1px) !important;
+                border-color: rgba(156, 39, 176, 0.8) !important;
+                background: rgba(156, 39, 176, 0.46) !important;
             }
             .request-control-button:active {
-                transform: translateY(0px) scale(0.98) !important;
-                box-shadow: 0 2px 8px rgba(156, 39, 176, 0.3) !important;
+                transform: scale(0.98) !important;
             }
             .request-control-button::before {
                 content: '';
@@ -538,11 +551,7 @@
         `;
         document.head.appendChild(style);
 
-        requestControlButton.innerHTML = `
-            <svg viewBox="0 0 24 24" style="width:24px;height:24px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3));">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" fill="white"/>
-            </svg>
-        `;
+        requestControlButton.innerHTML = lucideIcon("radio-receiver", 22);
 
         controlBar.appendChild(requestControlButton);
         requestControlButton.addEventListener("click", requestControl);
@@ -561,7 +570,7 @@
         } else if (watchTogetherEnabled) {
             // Show button when not controlling
             requestControlButton.style.display = "flex";
-            requestControlButton.title = "Request Control";
+            requestControlButton.title = "Request Playback Control";
         } else {
             requestControlButton.style.display = "none";
         }
@@ -579,657 +588,29 @@
         settingsButton.title = "Watch Together Settings";
         settingsButton.style.cssText = `
             cursor: pointer;
-            border: 2px solid #2196F3;
-            border-radius: 4px;
-            background: rgba(33, 150, 243, 0.1);
-            margin-left: 5px;
+            width: 42px;
+            height: 42px;
+            min-width: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            border-radius: 6px;
+            background: rgba(10, 12, 16, 0.56);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(8px);
+            margin-left: 4px;
         `;
 
-        settingsButton.innerHTML = `
-            <svg class="icon-qy6I6" viewBox="0 0 24 24" style="width:24px;height:24px;">
-                <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z" fill="currentColor"/>
-            </svg>
-        `;
+        settingsButton.innerHTML = lucideIcon("settings", 22);
 
         controlBar.appendChild(settingsButton);
-        settingsButton.addEventListener("click", showSettingsPopup);
+        settingsButton.addEventListener("click", toggleSettingsPopup);
 
         console.log("GUEST: Settings button created");
     }
 
-    // Parse easy Firebase configuration
-    function parseEasyFirebaseConfig() {
-        const configText = document
-            .getElementById("easyFirebaseConfig")
-            .value.trim();
-
-        if (!configText) {
-            alert("Please paste your Firebase configuration object first.");
-            return;
-        }
-
-        try {
-            // Try to extract the configuration object from the text
-            let configObj = null;
-
-            // Robust cleanup that preserves URLs and only removes comments outside strings
-            function removeCommentsOutsideStrings(text) {
-                let result = "";
-                let inSingle = false,
-                    inDouble = false,
-                    inTemplate = false,
-                    inBlock = false;
-                for (let i = 0; i < text.length; ) {
-                    const ch = text[i];
-                    const next = text[i + 1];
-                    if (
-                        !inSingle &&
-                        !inDouble &&
-                        !inTemplate &&
-                        !inBlock &&
-                        ch === "/" &&
-                        next === "/"
-                    ) {
-                        // line comment - skip to end of line
-                        i += 2;
-                        while (i < text.length && text[i] !== "\n") i++;
-                        continue;
-                    }
-                    if (
-                        !inSingle &&
-                        !inDouble &&
-                        !inTemplate &&
-                        !inBlock &&
-                        ch === "/" &&
-                        next === "*"
-                    ) {
-                        // block comment
-                        inBlock = true;
-                        i += 2;
-                        continue;
-                    }
-                    if (inBlock) {
-                        if (ch === "*" && next === "/") {
-                            inBlock = false;
-                            i += 2;
-                            continue;
-                        }
-                        i++;
-                        continue;
-                    }
-                    if (
-                        !inDouble &&
-                        !inTemplate &&
-                        ch === "'" &&
-                        text[i - 1] !== "\\"
-                    ) {
-                        inSingle = !inSingle;
-                        result += ch;
-                        i++;
-                        continue;
-                    }
-                    if (
-                        !inSingle &&
-                        !inTemplate &&
-                        ch === '"' &&
-                        text[i - 1] !== "\\"
-                    ) {
-                        inDouble = !inDouble;
-                        result += ch;
-                        i++;
-                        continue;
-                    }
-                    if (
-                        !inSingle &&
-                        !inDouble &&
-                        ch === "`" &&
-                        text[i - 1] !== "\\"
-                    ) {
-                        inTemplate = !inTemplate;
-                        result += ch;
-                        i++;
-                        continue;
-                    }
-                    result += ch;
-                    i++;
-                }
-                return result;
-            }
-
-            function collapseNewlinesInsideStrings(text) {
-                let result = "";
-                let inSingle = false,
-                    inDouble = false,
-                    inTemplate = false;
-                for (let i = 0; i < text.length; ) {
-                    const ch = text[i];
-                    if (
-                        !inDouble &&
-                        !inTemplate &&
-                        ch === "'" &&
-                        text[i - 1] !== "\\"
-                    ) {
-                        inSingle = !inSingle;
-                        result += ch;
-                        i++;
-                        continue;
-                    }
-                    if (
-                        !inSingle &&
-                        !inTemplate &&
-                        ch === '"' &&
-                        text[i - 1] !== "\\"
-                    ) {
-                        inDouble = !inDouble;
-                        result += ch;
-                        i++;
-                        continue;
-                    }
-                    if (
-                        !inSingle &&
-                        !inDouble &&
-                        ch === "`" &&
-                        text[i - 1] !== "\\"
-                    ) {
-                        inTemplate = !inTemplate;
-                        result += ch;
-                        i++;
-                        continue;
-                    }
-                    if ((inSingle || inDouble) && ch === "\n") {
-                        // remove newline and following indentation inside quotes
-                        i++;
-                        while (
-                            i < text.length &&
-                            (text[i] === " " ||
-                                text[i] === "\t" ||
-                                text[i] === "\r")
-                        )
-                            i++;
-                        continue;
-                    }
-                    result += ch;
-                    i++;
-                }
-                return result;
-            }
-
-            let cleanText = removeCommentsOutsideStrings(configText);
-            cleanText = collapseNewlinesInsideStrings(cleanText);
-            // Remove trailing commas before closing braces/brackets
-            cleanText = cleanText.replace(/,(\s*[}\]])/g, "$1");
-
-            // Try to find the firebaseConfig object
-            const configMatch = cleanText.match(
-                /const\s+firebaseConfig\s*=\s*({[\s\S]*?});?/,
-            );
-            if (configMatch) {
-                console.log(
-                    "GUEST DEBUG: Found firebaseConfig object:",
-                    configMatch[1],
-                );
-                // Use eval to parse the object (safe in this context as it's user-provided config)
-                configObj = eval("(" + configMatch[1] + ")");
-            } else {
-                console.log(
-                    "GUEST DEBUG: No firebaseConfig match found, trying direct parse:",
-                    cleanText,
-                );
-                // Try to parse as direct object
-                configObj = eval("(" + cleanText + ")");
-            }
-
-            if (!configObj || typeof configObj !== "object") {
-                throw new Error("Invalid configuration object");
-            }
-
-            // Extract values and populate manual fields
-            const extractedConfig = {
-                apiKey: configObj.apiKey || "",
-                authDomain: configObj.authDomain || "",
-                projectId: configObj.projectId || "",
-                storageBucket: configObj.storageBucket || "",
-                messagingSenderId: configObj.messagingSenderId || "",
-                appId: configObj.appId || "",
-                measurementId: configObj.measurementId || "",
-                databaseURL:
-                    configObj.databaseURL || configObj.databaseUrl || "",
-            };
-
-            // Update manual configuration fields
-            document.getElementById("apiKeyInput").value =
-                extractedConfig.apiKey;
-            document.getElementById("authDomainInput").value =
-                extractedConfig.authDomain;
-            document.getElementById("projectIdInput").value =
-                extractedConfig.projectId;
-            document.getElementById("storageBucketInput").value =
-                extractedConfig.storageBucket;
-            document.getElementById("messagingSenderIdInput").value =
-                extractedConfig.messagingSenderId;
-            document.getElementById("appIdInput").value = extractedConfig.appId;
-            document.getElementById("measurementIdInput").value =
-                extractedConfig.measurementId;
-            document.getElementById("databaseUrlInput").value =
-                extractedConfig.databaseURL;
-
-            // Check if databaseURL is missing
-            const databaseUrlSection =
-                document.getElementById("databaseUrlSection");
-            if (!extractedConfig.databaseURL) {
-                databaseUrlSection.style.display = "block";
-                alert(
-                    "WARNING: Database URL not found in your configuration!\n\nYou need to create a Realtime Database in Firebase Console and add the databaseURL to your configuration.\n\nThe databaseURL should look like:\nhttps://your-project-default-rtdb.firebaseio.com/",
-                );
-            } else {
-                databaseUrlSection.style.display = "none";
-                alert(
-                    "SUCCESS: Firebase configuration parsed successfully!\n\nAll configuration values have been extracted and populated. You can now save the settings.",
-                );
-            }
-
-            console.log(
-                "GUEST: Firebase configuration parsed:",
-                extractedConfig,
-            );
-        } catch (error) {
-            console.error(
-                "GUEST ERROR: Failed to parse Firebase configuration:",
-                error,
-            );
-            alert(
-                'ERROR: Failed to parse Firebase configuration!\n\nPlease make sure you pasted a valid Firebase configuration object.\n\nExample format:\nconst firebaseConfig = {\n  apiKey: "your-key",\n  authDomain: "your-domain",\n  // ... other fields\n};',
-            );
-        }
-    }
-
-    // Clear easy Firebase configuration
-    function clearEasyFirebaseConfig() {
-        document.getElementById("easyFirebaseConfig").value = "";
-        document.getElementById("databaseUrlSection").style.display = "none";
-        document.getElementById("easyDatabaseUrlInput").value = "";
-    }
-
-    // Switch between configuration tabs
-    function switchConfigTab(tab) {
-        const easyTab = document.getElementById("easyConfigTab");
-        const manualTab = document.getElementById("manualConfigTab");
-        const shareTab = document.getElementById("shareConfigTab");
-        const easyContent = document.getElementById("easyConfigContent");
-        const manualContent = document.getElementById("manualConfigContent");
-        const shareContent = document.getElementById("shareConfigContent");
-
-        // Reset all tabs
-        easyTab.style.background = "transparent";
-        easyTab.style.color = "#aaa";
-        manualTab.style.background = "transparent";
-        manualTab.style.color = "#aaa";
-        shareTab.style.background = "transparent";
-        shareTab.style.color = "#aaa";
-
-        // Hide all content
-        easyContent.style.display = "none";
-        manualContent.style.display = "none";
-        shareContent.style.display = "none";
-
-        if (tab === "easy") {
-            easyTab.style.background = "#4CAF50";
-            easyTab.style.color = "white";
-            easyContent.style.display = "block";
-        } else if (tab === "manual") {
-            manualTab.style.background = "#4CAF50";
-            manualTab.style.color = "white";
-            manualContent.style.display = "block";
-        } else if (tab === "share") {
-            shareTab.style.background = "#4CAF50";
-            shareTab.style.color = "white";
-            shareContent.style.display = "block";
-        }
-    }
-
-    // Generate shareable Firebase configuration
-    function generateShareableConfig() {
-        const configCode = `const firebaseConfig = {
-    apiKey: "${firebaseConfig.apiKey}",
-    authDomain: "${firebaseConfig.authDomain}",
-    projectId: "${firebaseConfig.projectId}",
-    storageBucket: "${firebaseConfig.storageBucket}",
-    messagingSenderId: "${firebaseConfig.messagingSenderId}",
-    appId: "${firebaseConfig.appId}",
-    measurementId: "${firebaseConfig.measurementId}",
-    databaseURL: "${firebaseConfig.databaseURL}"
-};`;
-
-        const shareableConfigTextarea =
-            document.getElementById("shareableConfig");
-        if (shareableConfigTextarea) {
-            shareableConfigTextarea.value = configCode;
-            console.log("GUEST: Generated shareable configuration");
-        }
-    }
-
-    // Copy configuration to clipboard
-    function copyShareableConfig() {
-        const shareableConfigTextarea =
-            document.getElementById("shareableConfig");
-        if (shareableConfigTextarea) {
-            shareableConfigTextarea.select();
-            shareableConfigTextarea.setSelectionRange(0, 99999);
-
-            try {
-                document.execCommand("copy");
-                const copyButton = document.getElementById("copyConfig");
-                const originalText = copyButton.textContent;
-                copyButton.textContent = "Copied!";
-                copyButton.style.background =
-                    "linear-gradient(135deg, #4CAF50 0%, #45a049 100%)";
-                setTimeout(() => {
-                    copyButton.textContent = originalText;
-                    copyButton.style.background = "#666";
-                }, 2000);
-                console.log("GUEST: Configuration copied to clipboard");
-            } catch (error) {
-                console.error(
-                    "GUEST ERROR: Failed to copy configuration:",
-                    error,
-                );
-                alert("Failed to copy configuration. Please copy manually.");
-            }
-        }
-    }
-
-    // Show settings popup
-    function showSettingsPopup() {
-        hideSettingsPopup(); // Remove existing popup
-
-        settingsPopup = document.createElement("div");
-        settingsPopup.className = "watch-together-settings-popup";
-        settingsPopup.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-            border: 2px solid #4CAF50;
-            border-radius: 12px;
-            padding: 0;
-            z-index: 10000;
-            width: 700px;
-            max-width: 95vw;
-            max-height: 95vh;
-            overflow: hidden;
-            color: white;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-        `;
-
-        settingsPopup.innerHTML = `
-            <div style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); padding: 20px; color: white;">
-                <h3 style="margin: 0; font-size: 24px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">Watch Together Settings</h3>
-                <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 14px;">Configure your room and Firebase settings</p>
-            </div>
-
-            <div style="padding: 25px; max-height: calc(95vh - 120px); overflow-y: auto;">
-                <div style="margin-bottom: 30px;">
-                    <h4 style="margin: 0 0 15px 0; color: #4CAF50; font-size: 18px; font-weight: 600; border-bottom: 2px solid #333; padding-bottom: 8px;">Room Configuration</h4>
-                    <div style="margin-bottom: 20px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #e0e0e0;">Display Name:</label>
-                        <input type="text" id="displayNameInput" value="${DISPLAY_NAME || ""}"
-                               style="width: 100%; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; color: white; font-size: 14px; transition: border-color 0.3s ease;"
-                               onfocus="this.style.borderColor='#4CAF50'" onblur="this.style.borderColor='#444'">
-                        <small style="color: #aaa; font-size: 12px; margin-top: 5px; display: block;">This name is shown to the host. Leave empty to auto-generate.</small>
-                    </div>
-                    <div style="margin-bottom: 20px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #e0e0e0;">Room ID:</label>
-                        <input type="text" id="roomIdInput" value="${ROOM_ID}"
-                               style="width: 100%; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; color: white; font-size: 14px; transition: border-color 0.3s ease;"
-                               onfocus="this.style.borderColor='#4CAF50'" onblur="this.style.borderColor='#444'">
-                        <small style="color: #aaa; font-size: 12px; margin-top: 5px; display: block;">Enter the same Room ID as the host</small>
-                    </div>
-                </div>
-
-                <div style="margin-bottom: 30px;">
-                    <h4 style="margin: 0 0 20px 0; color: #4CAF50; font-size: 18px; font-weight: 600; border-bottom: 2px solid #333; padding-bottom: 8px;">Firebase Configuration</h4>
-
-                    <!-- Tab Navigation -->
-                    <div style="display: flex; border-bottom: 2px solid #333; margin-bottom: 25px; background: #2a2a2a; border-radius: 8px; padding: 4px;">
-                        <button id="easyConfigTab" class="config-tab active" style="
-                            flex: 1;
-                            padding: 12px 20px;
-                            background: #4CAF50;
-                            color: white;
-                            border: none;
-                            border-radius: 6px;
-                            cursor: pointer;
-                            font-size: 14px;
-                            font-weight: 600;
-                            transition: all 0.3s ease;
-                        ">Easy Setup</button>
-                        <button id="manualConfigTab" class="config-tab" style="
-                            flex: 1;
-                            padding: 12px 20px;
-                            background: transparent;
-                            color: #aaa;
-                            border: none;
-                            border-radius: 6px;
-                            cursor: pointer;
-                            font-size: 14px;
-                            font-weight: 600;
-                            transition: all 0.3s ease;
-                        ">Manual Setup</button>
-                        <button id="shareConfigTab" class="config-tab" style="
-                            flex: 1;
-                            padding: 12px 20px;
-                            background: transparent;
-                            color: #aaa;
-                            border: none;
-                            border-radius: 6px;
-                            cursor: pointer;
-                            font-size: 14px;
-                            font-weight: 600;
-                            transition: all 0.3s ease;
-                        ">Share Config</button>
-                    </div>
-
-                    <!-- Easy Configuration Tab -->
-                    <div id="easyConfigContent" class="config-content" style="display: block;">
-                        <div style="padding: 20px; background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.05) 100%); border: 2px solid #4CAF50; border-radius: 10px;">
-                            <p style="margin: 0 0 15px 0; font-size: 14px; color: #e0e0e0; line-height: 1.5;">Paste your complete Firebase configuration object here:</p>
-                            <textarea id="easyFirebaseConfig" placeholder="const firebaseConfig = {
-    apiKey: &quot;yourApiKeyFromFirebase&quot;,
-    authDomain: &quot;yourAuthDomainFromFirebase&quot;,
-    projectId: &quot;yourProjectIdFromFirebase&quot;,
-    storageBucket: &quot;yourStorageBucket.firebasestorage.app&quot;,
-    messagingSenderId: &quot;918854225070&quot;,
-    appId: &quot;yourAppIdFromFirebase&quot;,
-    measurementId: &quot;yourMeasurementIdFromFirebase&quot;,
-    databaseURL: &quot;yourDatabaseUrlFromFirebase&quot;
-};"
-                                      style="width: 100%; height: 160px; padding: 15px; border: 2px solid #444; border-radius: 8px; background: #1a1a1a; color: #e0e0e0; font-size: 12px; font-family: 'Courier New', monospace; resize: vertical; line-height: 1.4;"></textarea>
-                            <div style="display: flex; gap: 12px; margin-top: 15px;">
-                                <button id="parseFirebaseConfig" style="padding: 12px 24px; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: transform 0.2s ease;"
-                                        onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">Parse Configuration</button>
-                                <button id="clearEasyConfig" style="padding: 12px 24px; background: #666; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; transition: transform 0.2s ease;"
-                                        onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">Clear</button>
-                            </div>
-                            <div id="databaseUrlSection" style="margin-top: 15px; display: none; padding: 15px; background: rgba(255, 152, 0, 0.1); border: 2px solid #ff9800; border-radius: 8px;">
-                                <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #ff9800;">WARNING: Database URL Required:</label>
-                                <input type="text" id="easyDatabaseUrlInput" placeholder="https://your-project-default-rtdb.firebaseio.com/"
-                                       style="width: 100%; padding: 12px; border: 2px solid #ff9800; border-radius: 6px; background: #2a2a2a; color: white; font-size: 14px;">
-                                <small style="color: #ff9800; font-size: 12px; margin-top: 5px; display: block;">You need to create a Realtime Database in Firebase Console and add the URL here</small>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Manual Configuration Tab -->
-                    <div id="manualConfigContent" class="config-content" style="display: none;">
-                        <div style="padding: 20px; background: linear-gradient(135deg, rgba(102, 102, 102, 0.1) 0%, rgba(102, 102, 102, 0.05) 100%); border: 2px solid #666; border-radius: 10px;">
-                            <p style="margin: 0 0 20px 0; font-size: 14px; color: #e0e0e0; line-height: 1.5;">Manually enter each Firebase configuration value:</p>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-                                <div>
-                                    <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #e0e0e0;">API Key:</label>
-                                    <input type="text" id="apiKeyInput" value="${firebaseConfig.apiKey}"
-                                           style="width: 100%; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; color: white; font-size: 14px; transition: border-color 0.3s ease;"
-                                           onfocus="this.style.borderColor='#4CAF50'" onblur="this.style.borderColor='#444'">
-                                </div>
-                                <div>
-                                    <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #e0e0e0;">Auth Domain:</label>
-                                    <input type="text" id="authDomainInput" value="${firebaseConfig.authDomain}"
-                                           style="width: 100%; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; color: white; font-size: 14px; transition: border-color 0.3s ease;"
-                                           onfocus="this.style.borderColor='#4CAF50'" onblur="this.style.borderColor='#444'">
-                                </div>
-                                <div>
-                                    <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #e0e0e0;">Project ID:</label>
-                                    <input type="text" id="projectIdInput" value="${firebaseConfig.projectId}"
-                                           style="width: 100%; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; color: white; font-size: 14px; transition: border-color 0.3s ease;"
-                                           onfocus="this.style.borderColor='#4CAF50'" onblur="this.style.borderColor='#444'">
-                                </div>
-                                <div>
-                                    <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #e0e0e0;">Storage Bucket:</label>
-                                    <input type="text" id="storageBucketInput" value="${firebaseConfig.storageBucket}"
-                                           style="width: 100%; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; color: white; font-size: 14px; transition: border-color 0.3s ease;"
-                                           onfocus="this.style.borderColor='#4CAF50'" onblur="this.style.borderColor='#444'">
-                                </div>
-                                <div>
-                                    <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #e0e0e0;">Messaging Sender ID:</label>
-                                    <input type="text" id="messagingSenderIdInput" value="${firebaseConfig.messagingSenderId}"
-                                           style="width: 100%; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; color: white; font-size: 14px; transition: border-color 0.3s ease;"
-                                           onfocus="this.style.borderColor='#4CAF50'" onblur="this.style.borderColor='#444'">
-                                </div>
-                                <div>
-                                    <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #e0e0e0;">App ID:</label>
-                                    <input type="text" id="appIdInput" value="${firebaseConfig.appId}"
-                                           style="width: 100%; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; color: white; font-size: 14px; transition: border-color 0.3s ease;"
-                                           onfocus="this.style.borderColor='#4CAF50'" onblur="this.style.borderColor='#444'">
-                                </div>
-                                <div>
-                                    <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #e0e0e0;">Measurement ID:</label>
-                                    <input type="text" id="measurementIdInput" value="${firebaseConfig.measurementId}"
-                                           style="width: 100%; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; color: white; font-size: 14px; transition: border-color 0.3s ease;"
-                                           onfocus="this.style.borderColor='#4CAF50'" onblur="this.style.borderColor='#444'">
-                                </div>
-                                <div>
-                                    <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #e0e0e0;">Database URL:</label>
-                                    <input type="text" id="databaseUrlInput" value="${firebaseConfig.databaseURL}"
-                                           style="width: 100%; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; color: white; font-size: 14px; transition: border-color 0.3s ease;"
-                                           onfocus="this.style.borderColor='#4CAF50'" onblur="this.style.borderColor='#444'">
-                                </div>
-                            </div>
-                            <small style="color: #aaa; font-size: 12px; display: block; text-align: center; margin-top: 10px;">Get these values from your Firebase project settings</small>
-                        </div>
-                    </div>
-
-                    <!-- Share Configuration Tab -->
-                    <div id="shareConfigContent" class="config-content" style="display: none;">
-                        <div style="padding: 20px; background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.05) 100%); border: 2px solid #4CAF50; border-radius: 10px;">
-                            <h5 style="margin: 0 0 15px 0; color: #4CAF50; font-size: 16px; font-weight: 600;">Share Your Firebase Configuration</h5>
-                            <p style="margin: 0 0 20px 0; font-size: 14px; color: #e0e0e0; line-height: 1.5;">Generate a shareable configuration that other guests can easily import:</p>
-
-                            <div style="margin-bottom: 20px;">
-                                <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #e0e0e0;">Configuration Code:</label>
-                                <textarea id="shareableConfig" readonly
-                                          style="width: 100%; height: 200px; padding: 15px; border: 2px solid #444; border-radius: 8px; background: #1a1a1a; color: #4CAF50; font-size: 12px; font-family: 'Courier New', monospace; resize: vertical; line-height: 1.4;"></textarea>
-                                <div style="display: flex; gap: 12px; margin-top: 12px;">
-                                    <button id="generateConfig" style="padding: 12px 24px; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: transform 0.2s ease;"
-                                            onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">Generate Config</button>
-                                    <button id="copyConfig" style="padding: 12px 24px; background: #666; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; transition: transform 0.2s ease;"
-                                            onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">Copy Config</button>
-                                </div>
-                            </div>
-
-                            <div style="background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 8px; border-left: 4px solid #4CAF50;">
-                                <h6 style="margin: 0 0 10px 0; color: #4CAF50; font-size: 14px; font-weight: 600;">Instructions for Other Guests:</h6>
-                                <ol style="margin: 0; padding-left: 20px; color: #e0e0e0; font-size: 13px; line-height: 1.6;">
-                                    <li>Copy the configuration code above</li>
-                                    <li>Open Watch Together settings in their browser</li>
-                                    <li>Go to "Easy Setup" tab</li>
-                                    <li>Paste the configuration and click "Parse Configuration"</li>
-                                    <li>Save the settings</li>
-                                </ol>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div style="display: flex; gap: 12px; justify-content: space-between; padding-top: 20px; border-top: 2px solid #333;">
-                    <div>
-                        <button id="clearConfig" style="padding: 12px 20px; background: #666; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: transform 0.2s ease;"
-                                onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">Clear All</button>
-                    </div>
-                    <div style="display: flex; gap: 12px;">
-                        <button id="cancelSettings" style="padding: 12px 20px; background: #666; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: transform 0.2s ease;"
-                                onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">Cancel</button>
-                        <button id="saveSettings" style="padding: 12px 24px; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: transform 0.2s ease;"
-                                onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">Save Settings</button>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(settingsPopup);
-
-        // Add event listeners
-        document
-            .getElementById("cancelSettings")
-            .addEventListener("click", hideSettingsPopup);
-        document
-            .getElementById("saveSettings")
-            .addEventListener("click", saveSettings);
-        document
-            .getElementById("clearConfig")
-            .addEventListener("click", clearAllSettings);
-        document
-            .getElementById("roomIdInput")
-            .addEventListener("keypress", (e) => {
-                if (e.key === "Enter") saveSettings();
-            });
-
-        // Easy configuration event listeners
-        document
-            .getElementById("parseFirebaseConfig")
-            .addEventListener("click", parseEasyFirebaseConfig);
-        document
-            .getElementById("clearEasyConfig")
-            .addEventListener("click", clearEasyFirebaseConfig);
-
-        // Tab switching event listeners
-        document
-            .getElementById("easyConfigTab")
-            .addEventListener("click", () => switchConfigTab("easy"));
-        document
-            .getElementById("manualConfigTab")
-            .addEventListener("click", () => switchConfigTab("manual"));
-        document
-            .getElementById("shareConfigTab")
-            .addEventListener("click", () => switchConfigTab("share"));
-
-        // Sharing functionality event listeners
-        document
-            .getElementById("generateConfig")
-            .addEventListener("click", generateShareableConfig);
-        document
-            .getElementById("copyConfig")
-            .addEventListener("click", copyShareableConfig);
-
-        // Prevent backspace navigation in the popup
-        settingsPopup.addEventListener("keydown", (e) => {
-            if (
-                e.key === "Backspace" &&
-                e.target.tagName !== "INPUT" &&
-                e.target.tagName !== "TEXTAREA"
-            ) {
-                e.preventDefault();
-            }
-        });
-
-        // Focus on input
-        document.getElementById("roomIdInput").focus();
-        document.getElementById("roomIdInput").select();
-
-        console.log("GUEST: Settings popup shown");
-    }
-
-    // Hide settings popup
     function hideSettingsPopup() {
         if (settingsPopup) {
             settingsPopup.remove();
@@ -1350,6 +731,195 @@
         }
     }
 
+    function hideSettingsPopup() {
+        if (settingsPopup) {
+            settingsPopup.remove();
+            settingsPopup = null;
+        }
+    }
+
+    function clearAllSettings() {
+        if (
+            confirm(
+                "Are you sure you want to clear local room and display-name settings?",
+            )
+        ) {
+            clearConfig();
+            hideSettingsPopup();
+            showHostStatus("Settings cleared - reloading...");
+            setTimeout(() => {
+                location.reload();
+            }, 1200);
+        }
+    }
+
+    function toggleSettingsPopup() {
+        if (settingsPopup) {
+            hideSettingsPopup();
+            return;
+        }
+
+        showSettingsPopup();
+    }
+
+    async function copySettingsText(value, buttonId) {
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(value);
+            } else {
+                const textArea = document.createElement("textarea");
+                textArea.value = value;
+                textArea.style.position = "fixed";
+                textArea.style.opacity = "0";
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand("copy");
+                textArea.remove();
+            }
+
+            const button = document.getElementById(buttonId);
+            if (button) {
+                const originalText = button.textContent;
+                button.textContent = "Copied";
+                setTimeout(() => {
+                    button.textContent = originalText;
+                }, 1600);
+            }
+        } catch (error) {
+            console.error("GUEST ERROR: Failed to copy text:", error);
+            alert("Failed to copy. Please copy manually.");
+        }
+    }
+
+    function showSettingsPopup() {
+        hideSettingsPopup();
+
+        settingsPopup = document.createElement("div");
+        settingsPopup.className = "watch-together-settings-popup";
+        settingsPopup.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            border: 2px solid #4CAF50;
+            border-radius: 12px;
+            padding: 0;
+            z-index: 10000;
+            width: 420px;
+            max-width: 95vw;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+        `;
+
+        settingsPopup.innerHTML = `
+            <div style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); padding: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                <div>
+                    <h3 style="margin: 0; font-size: 20px; font-weight: 700;">Watch Together Settings</h3>
+                    <p style="margin: 6px 0 0 0; opacity: 0.9; font-size: 13px;">Room and identity settings</p>
+                </div>
+                <button id="closeSettings" title="Close Settings" style="background: rgba(0,0,0,0.2); border: none; color: white; width: 34px; height: 34px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center;">x</button>
+            </div>
+            <div style="padding: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #e0e0e0;">Display Name</label>
+                <input type="text" id="displayNameInput" value="${DISPLAY_NAME || ""}" style="width: 100%; box-sizing: border-box; margin-bottom: 16px; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; color: white; font-size: 14px;">
+
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #e0e0e0;">Room ID</label>
+                <div style="display: flex; gap: 8px; margin-bottom: 20px;">
+                    <input type="text" id="roomIdInput" value="${ROOM_ID}" style="flex: 1; min-width: 0; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; color: white; font-size: 14px;">
+                    <button id="copyRoomId" title="Copy Room ID" style="width: 46px; border: none; border-radius: 8px; background: #444; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center;">${lucideIcon("clipboard-copy", 20)}</button>
+                </div>
+
+                <div style="padding: 12px; border-left: 4px solid #4CAF50; background: rgba(76, 175, 80, 0.08); color: #ddd; font-size: 12px; line-height: 1.45; margin-bottom: 20px;">
+                    Firebase defaults are built into the userscript from .env. This panel only changes your room and display name.
+                </div>
+
+                <div style="display: flex; justify-content: space-between; gap: 12px;">
+                    <button id="clearConfig" style="padding: 11px 14px; background: #666; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;">Clear Local</button>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="cancelSettings" style="padding: 11px 14px; background: #666; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;">Cancel</button>
+                        <button id="saveSettings" style="padding: 11px 16px; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700;">Save</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(settingsPopup);
+        document.getElementById("closeSettings").addEventListener("click", hideSettingsPopup);
+        document.getElementById("cancelSettings").addEventListener("click", hideSettingsPopup);
+        document.getElementById("saveSettings").addEventListener("click", saveSettings);
+        document.getElementById("clearConfig").addEventListener("click", clearAllSettings);
+        document.getElementById("copyRoomId").addEventListener("click", () => copySettingsText(document.getElementById("roomIdInput").value.trim(), "copyRoomId"));
+        document.getElementById("roomIdInput").addEventListener("keydown", (e) => {
+            if (e.key === "Enter") saveSettings();
+        });
+
+        console.log("GUEST: Settings popup shown");
+    }
+
+    async function saveSettings() {
+        const newRoomId = document.getElementById("roomIdInput").value.trim();
+        const newDisplayName = document.getElementById("displayNameInput").value.trim();
+
+        if (!newRoomId) {
+            alert("Room ID cannot be empty!");
+            return;
+        }
+
+        const roomChanged = newRoomId !== ROOM_ID;
+        const nameChanged = newDisplayName !== DISPLAY_NAME;
+
+        if (!roomChanged && !nameChanged) {
+            hideSettingsPopup();
+            return;
+        }
+
+        if (isFollowingHost && roomChanged) {
+            stopFollowingHost();
+        }
+
+        ROOM_ID = newRoomId;
+        DISPLAY_NAME = newDisplayName;
+        saveConfig();
+
+        if (roomChanged) {
+            const firebaseReady = await initializeFirebase();
+            if (!firebaseReady) {
+                alert("Room saved, but Firebase could not reconnect. Check the built Firebase config.");
+                return;
+            }
+        }
+
+        hideSettingsPopup();
+        showHostStatus(`Settings updated - Room: ${ROOM_ID}`);
+        setTimeout(() => {
+            const existingStatus = document.querySelector(".host-status-message");
+            if (existingStatus) existingStatus.remove();
+        }, 3000);
+    }
+
+    function updateSyncButtonState() {
+        if (!watchTogetherButton) return;
+
+        if (watchTogetherEnabled) {
+            watchTogetherButton.title = "Sync On - following host";
+            watchTogetherButton.style.background = "rgba(76, 175, 80, 0.72)";
+            watchTogetherButton.style.borderColor = "rgba(170, 235, 175, 0.95)";
+            watchTogetherButton.style.boxShadow =
+                "inset 0 0 0 1px rgba(255, 255, 255, 0.16)";
+            watchTogetherButton.style.opacity = "1";
+        } else {
+            watchTogetherButton.title = "Sync Off - click to follow host";
+            watchTogetherButton.style.background = "rgba(10, 12, 16, 0.56)";
+            watchTogetherButton.style.borderColor = "rgba(255, 255, 255, 0.22)";
+            watchTogetherButton.style.boxShadow =
+                "inset 0 -2px 0 rgba(76, 175, 80, 0.72)";
+            watchTogetherButton.style.opacity = "0.92";
+        }
+    }
+
     // Toggle Watch Together functionality
     function toggleWatchTogether() {
         // Check if Firebase is configured
@@ -1361,14 +931,12 @@
         watchTogetherEnabled = !watchTogetherEnabled;
 
         if (watchTogetherEnabled) {
-            watchTogetherButton.style.backgroundColor = "#4CAF50";
-            watchTogetherButton.style.opacity = "1";
+            updateSyncButtonState();
             console.log("GUEST: Watch Together ENABLED - Following host");
             startFollowingHost();
             updateRequestControlButton();
         } else {
-            watchTogetherButton.style.backgroundColor = "";
-            watchTogetherButton.style.opacity = "0.7";
+            updateSyncButtonState();
             console.log("GUEST: Watch Together DISABLED");
             stopFollowingHost();
             updateRequestControlButton();
@@ -2109,6 +1677,10 @@
         hideSettingsPopup();
         hideHostStatus();
         hideHostBufferingIcon();
+        const existingSyncPill = document.querySelector(
+            ".watch-together-sync-pill",
+        );
+        if (existingSyncPill) existingSyncPill.remove();
 
         if (bufferingObserver) {
             bufferingObserver.disconnect();
