@@ -907,20 +907,23 @@
         }
     }
 
-    // Check if guest video is buffering
-    function isVideoBuffering() {
+    // Check if guest video is buffering or not ready to resume.
+    function isVideoBuffering({ includePaused = false } = {}) {
         if (videoElement) {
-            return (
-                videoElement.readyState < HTMLMediaElement.HAVE_FUTURE_DATA ||
-                videoElement.networkState === HTMLMediaElement.NETWORK_LOADING
-            );
+            if (videoElement.ended) return false;
+            if (!includePaused && videoElement.paused) return false;
+
+            // Transcoded Stremio streams can keep networkState at LOADING even
+            // while playback is healthy, so rely on playable buffered data.
+            return videoElement.readyState < HTMLMediaElement.HAVE_FUTURE_DATA;
         }
 
         const bufferingLayer = document.querySelector(".buffering-layer-ZZCYp");
-        return (
-            bufferingLayer &&
-            bufferingLayer.style.display !== "none" &&
-            bufferingLayer.offsetParent !== null
+        return Boolean(
+            getPlayState() &&
+                bufferingLayer &&
+                bufferingLayer.style.display !== "none" &&
+                bufferingLayer.offsetParent !== null,
         );
     }
 
@@ -949,7 +952,7 @@
         const snapshot = {
             currentTime: getCurrentTime(),
             isPlaying: getPlayState(),
-            isBuffering: isVideoBuffering(),
+            isBuffering: isVideoBuffering({ includePaused: true }),
             duration: getVideoDuration(),
             timeReliable: !!hasUsableVideo,
             sampledAt: serverNow(),
@@ -1713,7 +1716,9 @@
         const bufferingLayer = document.querySelector(".buffering-layer-ZZCYp");
         if (bufferingLayer) {
             bufferingObserver = new MutationObserver(() => {
-                const currentlyBuffering = isVideoBuffering();
+                const currentlyBuffering = isVideoBuffering({
+                    includePaused: true,
+                });
                 if (currentlyBuffering !== isGuestBuffering) {
                     isGuestBuffering = currentlyBuffering;
                     if (watchTogetherEnabled) {

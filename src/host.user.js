@@ -972,17 +972,19 @@
     // Check if video is buffering
     function isVideoBuffering() {
         if (videoElement) {
-            return (
-                videoElement.readyState < HTMLMediaElement.HAVE_FUTURE_DATA ||
-                videoElement.networkState === HTMLMediaElement.NETWORK_LOADING
-            );
+            if (videoElement.paused || videoElement.ended) return false;
+
+            // Transcoded Stremio streams can keep networkState at LOADING even
+            // while playback is healthy, so rely on playable buffered data.
+            return videoElement.readyState < HTMLMediaElement.HAVE_FUTURE_DATA;
         }
 
         const bufferingLayer = document.querySelector(".buffering-layer-ZZCYp");
-        return (
-            bufferingLayer &&
-            bufferingLayer.style.display !== "none" &&
-            bufferingLayer.offsetParent !== null
+        return Boolean(
+            getPlayState() &&
+                bufferingLayer &&
+                bufferingLayer.style.display !== "none" &&
+                bufferingLayer.offsetParent !== null,
         );
     }
 
