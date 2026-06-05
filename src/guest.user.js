@@ -68,11 +68,39 @@
                 animation: wt-fade-in 0.16s ease;
             }
             .watch-together-settings-popup { animation: wt-pop-in 0.18s ease; }
+            .wt-toast-container {
+                position: fixed;
+                top: 80px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 10001;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                align-items: center;
+                pointer-events: none;
+            }
+            .wt-toast-container .control-notification {
+                background: rgba(0, 0, 0, 0.95);
+                color: white;
+                padding: 12px 24px;
+                border-radius: 8px;
+                border: 2px solid #4CAF50;
+                font-size: 14px;
+                font-weight: 600;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+                max-width: 360px;
+                text-align: center;
+                pointer-events: auto;
+                animation: wtToastIn 0.25s ease;
+            }
             @keyframes wt-fade-in { from { opacity: 0; } to { opacity: 1; } }
             @keyframes wt-pop-in {
                 from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
                 to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
             }
+            @keyframes wtToastIn { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
+            @keyframes wtToastOut { from { opacity: 1; } to { opacity: 0; transform: translateY(-8px); } }
         `;
         document.head.appendChild(style);
     }
@@ -395,6 +423,7 @@
     let isGuestBuffering = false;
     let lastGuestStateSent = 0;
     let currentControllerId = null;
+    let pendingControlRequest = false;
     let requestControlButton = null;
     let isScriptActive = false;
     let isInitializationRunning = false;
@@ -410,6 +439,11 @@
     let hostClockUpdatedAt = 0;
     let hostClockPlaying = false;
     let lastProgrammaticSeekAt = 0;
+
+    // Connection monitoring (Firebase .info/connected)
+    let monitoredDatabase = null;
+    let wasConnected = null;
+    let hasLostConnection = false;
 
     // Initialize Firebase
     async function initializeFirebase() {
@@ -442,6 +476,7 @@
             roomRef = ref(database, "rooms/" + ROOM_ID);
 
             console.log("GUEST: Firebase initialized for room:", ROOM_ID);
+            monitorConnection();
             return true;
         } catch (error) {
             console.error(
@@ -1329,56 +1364,31 @@
     }
 
     // Show notification message
-    function showNotification(message, color = "#4CAF50") {
-        // Remove existing notification
-        const existingNotification = document.querySelector(
-            ".control-notification",
-        );
-        if (existingNotification) {
-            existingNotification.remove();
+    // Stack toasts in a shared container so multiple messages coexist instead of
+    // clobbering each other. Uses textContent, so callers pass raw strings.
+    function showNotification(message, color = "#4CAF50", duration = 3000) {
+        injectPanelStyles();
+
+        let container = document.querySelector(".wt-toast-container");
+        if (!container) {
+            container = document.createElement("div");
+            container.className = "wt-toast-container";
+            document.body.appendChild(container);
         }
 
         const notification = document.createElement("div");
         notification.className = "control-notification";
-        notification.style.cssText = `
-            position: fixed;
-            top: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.95);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            z-index: 10001;
-            border: 2px solid ${color};
-            font-size: 14px;
-            font-weight: 600;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-            animation: slideDown 0.3s ease;
-        `;
-        notification.innerHTML = `
-            <style>
-                @keyframes slideDown {
-                    from {
-                        transform: translateX(-50%) translateY(-20px);
-                        opacity: 0;
-                    }
-                    to {
-                        transform: translateX(-50%) translateY(0);
-                        opacity: 1;
-                    }
-                }
-            </style>
-            ${message}
-        `;
-
-        document.body.appendChild(notification);
+        notification.style.borderColor = color;
+        notification.textContent = message;
+        container.appendChild(notification);
 
         setTimeout(() => {
-            if (notification.parentNode) {
+            notification.style.animation = "wtToastOut 0.25s ease forwards";
+            setTimeout(() => {
                 notification.remove();
-            }
-        }, 3000);
+                if (container && !container.childElementCount) container.remove();
+            }, 250);
+        }, duration);
     }
 
     // Request control from host
@@ -1397,6 +1407,7 @@
                 },
             });
 
+            pendingControlRequest = true;
             showNotification(
                 "Control requested - waiting for host approval",
                 "#ff9800",
@@ -1408,6 +1419,33 @@
         } catch (error) {
             console.error("GUEST ERROR: Failed to request control:", error);
             showNotification("Failed to request control", "#f44336");
+        }
+    }
+
+    // Watch Firebase's connection state and toast on drops/recoveries.
+    async function monitorConnection() {
+        if (!database || monitoredDatabase === database) return;
+        monitoredDatabase = database;
+        wasConnected = null;
+        hasLostConnection = false;
+
+        try {
+            const { ref, onValue } =
+                await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
+            const connectedRef = ref(database, ".info/connected");
+            onValue(connectedRef, (snapshot) => {
+                const connected = snapshot.val() === true;
+                if (!connected && wasConnected === true) {
+                    hasLostConnection = true;
+                    showNotification("Connection lost - reconnecting…", "#f44336", 6000);
+                } else if (connected && hasLostConnection) {
+                    hasLostConnection = false;
+                    showNotification("Reconnected to the room", "#4CAF50");
+                }
+                wasConnected = connected;
+            });
+        } catch (error) {
+            console.error("GUEST ERROR: Failed to monitor connection:", error);
         }
     }
 
@@ -1451,6 +1489,19 @@
                                 "Control returned to host",
                                 "#FF6B35",
                             );
+                        }
+                    }
+
+                    // Resolve a pending control request: if our request disappeared
+                    // without us becoming the controller, the host denied it.
+                    // (Approval is already announced by the control-change toast above.)
+                    if (pendingControlRequest) {
+                        const requests = data.permissions.controlRequests || {};
+                        if (!requests[USER_ID]) {
+                            pendingControlRequest = false;
+                            if (currentControllerId !== USER_ID) {
+                                showNotification("Control request denied by host", "#f44336");
+                            }
                         }
                     }
 
@@ -1718,6 +1769,7 @@
     function stopFollowingHost() {
         isFollowingHost = false;
         hostClockTime = null;
+        pendingControlRequest = false;
         hideHostStatus();
         hideHostBufferingIcon();
 

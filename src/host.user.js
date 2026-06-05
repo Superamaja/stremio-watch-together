@@ -98,11 +98,39 @@
                 white-space: nowrap;
                 max-width: 100%;
             }
+            .wt-toast-container {
+                position: fixed;
+                top: 80px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 10001;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                align-items: center;
+                pointer-events: none;
+            }
+            .wt-toast-container .control-notification {
+                background: rgba(0, 0, 0, 0.95);
+                color: white;
+                padding: 12px 24px;
+                border-radius: 8px;
+                border: 2px solid #FF6B35;
+                font-size: 14px;
+                font-weight: 600;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+                max-width: 360px;
+                text-align: center;
+                pointer-events: auto;
+                animation: wtToastIn 0.25s ease;
+            }
             @keyframes wt-fade-in { from { opacity: 0; } to { opacity: 1; } }
             @keyframes wt-pop-in {
                 from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
                 to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
             }
+            @keyframes wtToastIn { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
+            @keyframes wtToastOut { from { opacity: 1; } to { opacity: 0; transform: translateY(-8px); } }
         `;
         document.head.appendChild(style);
     }
@@ -427,6 +455,9 @@
     let guestStates = {};
     let guestDriftSnapshots = {};
     let guestListenerReady = false;
+    let guestBufferingSince = {};
+    let guestStuckNotified = {};
+    const STUCK_BUFFERING_MS = 8000;
     let isAnyGuestBuffering = false;
     let currentControllerId = null;
     let controlRequests = {};
@@ -1206,12 +1237,12 @@
 
         for (const [id, guest] of Object.entries(next)) {
             if (guest && !prev[id]) {
-                showNotification(`${escapeHtml(guest.displayName || id)} joined the room`, "#4CAF50");
+                showNotification(`${guest.displayName || id} joined the room`, "#4CAF50");
             }
         }
         for (const [id, guest] of Object.entries(prev)) {
             if (guest && !next[id]) {
-                showNotification(`${escapeHtml(guest.displayName || id)} left the room`, "#f44336");
+                showNotification(`${guest.displayName || id} left the room`, "#f44336");
             }
         }
     }
@@ -1237,6 +1268,7 @@
                 guestStates = newGuests;
                 updateGuestDriftSnapshots(guestStates);
                 checkGuestBuffering();
+                checkStuckBuffering();
                 showGuestStatus(guestCount);
                 updateControlPanel();
 
@@ -1321,6 +1353,37 @@
             // Make sure icon is hidden when no guests are buffering
             hideGuestBufferingStatus();
             hideGuestBufferingIcon();
+        }
+    }
+
+    // Toast once when a guest has been stuck buffering longer than the threshold.
+    function checkStuckBuffering() {
+        const now = Date.now();
+
+        for (const [id, guest] of Object.entries(guestStates)) {
+            const buffering = guest && guest.isBuffering === true && !isGuestStale(guest);
+            if (buffering) {
+                if (!guestBufferingSince[id]) {
+                    guestBufferingSince[id] = now;
+                } else if (
+                    now - guestBufferingSince[id] > STUCK_BUFFERING_MS &&
+                    !guestStuckNotified[id]
+                ) {
+                    guestStuckNotified[id] = true;
+                    showNotification(`${guest.displayName || id} is still buffering`, "#ff9800");
+                }
+            } else {
+                delete guestBufferingSince[id];
+                delete guestStuckNotified[id];
+            }
+        }
+
+        // Prune guests that have left.
+        for (const id of Object.keys(guestBufferingSince)) {
+            if (!guestStates[id]) {
+                delete guestBufferingSince[id];
+                delete guestStuckNotified[id];
+            }
         }
     }
 
@@ -1419,56 +1482,31 @@
     }
 
     // Show notification message
-    function showNotification(message, color = "#FF6B35") {
-        // Remove existing notification
-        const existingNotification = document.querySelector(
-            ".control-notification",
-        );
-        if (existingNotification) {
-            existingNotification.remove();
+    // Stack toasts in a shared container so multiple messages coexist instead of
+    // clobbering each other. Uses textContent, so callers pass raw strings.
+    function showNotification(message, color = "#FF6B35", duration = 3000) {
+        injectPanelStyles();
+
+        let container = document.querySelector(".wt-toast-container");
+        if (!container) {
+            container = document.createElement("div");
+            container.className = "wt-toast-container";
+            document.body.appendChild(container);
         }
 
         const notification = document.createElement("div");
         notification.className = "control-notification";
-        notification.style.cssText = `
-            position: fixed;
-            top: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.95);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            z-index: 10001;
-            border: 2px solid ${color};
-            font-size: 14px;
-            font-weight: 600;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-            animation: slideDown 0.3s ease;
-        `;
-        notification.innerHTML = `
-            <style>
-                @keyframes slideDown {
-                    from {
-                        transform: translateX(-50%) translateY(-20px);
-                        opacity: 0;
-                    }
-                    to {
-                        transform: translateX(-50%) translateY(0);
-                        opacity: 1;
-                    }
-                }
-            </style>
-            ${message}
-        `;
-
-        document.body.appendChild(notification);
+        notification.style.borderColor = color;
+        notification.textContent = message;
+        container.appendChild(notification);
 
         setTimeout(() => {
-            if (notification.parentNode) {
+            notification.style.animation = "wtToastOut 0.25s ease forwards";
+            setTimeout(() => {
                 notification.remove();
-            }
-        }, 3000);
+                if (container && !container.childElementCount) container.remove();
+            }, 250);
+        }, duration);
     }
 
     // Delegate control to a guest
@@ -1941,6 +1979,7 @@
         syncInterval = setInterval(() => {
             if (watchTogetherEnabled) {
                 sendHostState();
+                checkStuckBuffering();
                 updateControlPanel();
             }
         }, 2000); // Send updates every 2 seconds
