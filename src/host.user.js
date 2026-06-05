@@ -1013,13 +1013,13 @@
         const drift = (guestTime || 0) - hostTime;
         const absoluteDrift = Math.abs(drift);
         const color =
-            absoluteDrift <= 1.5
+            absoluteDrift <= 1
                 ? "#4CAF50"
-                : absoluteDrift <= 4
+                : absoluteDrift <= 3
                   ? "#ff9800"
                   : "#f44336";
         const label =
-            absoluteDrift <= 0.5
+            absoluteDrift <= 0.1
                 ? "in sync"
                 : `${drift > 0 ? "+" : "-"}${absoluteDrift.toFixed(1)}s`;
         return { drift, absoluteDrift, color, label };
@@ -1700,7 +1700,7 @@
         const hostTime = getCurrentTime();
         const hasActionableDrift = guestEntries.some(([guestId, guest]) => {
             if (guest.timeReliable === false || isGuestStale(guest)) return false;
-            return (guestDriftSnapshots[guestId]?.driftInfo?.absoluteDrift || 0) > 4;
+            return (guestDriftSnapshots[guestId]?.driftInfo?.absoluteDrift || 0) > 3;
         });
         const forceSyncButtonLabel = hasActionableDrift
             ? "Force Sync Guests - Drift Detected"
