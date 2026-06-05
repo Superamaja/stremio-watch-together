@@ -29,7 +29,10 @@
     const LUCIDE_ICONS = __LUCIDE_ICONS__;
 
     function lucideIcon(iconName, size = 24) {
-        const icon = LUCIDE_ICONS[iconName] || LUCIDE_ICONS["circle-question-mark"] || "";
+        const icon =
+            LUCIDE_ICONS[iconName] ||
+            LUCIDE_ICONS["circle-question-mark"] ||
+            "";
         return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${icon}</svg>`;
     }
 
@@ -357,7 +360,10 @@
                 if (typeof offset === "number") serverTimeOffset = offset;
             });
         } catch (error) {
-            console.error("GUEST ERROR: Failed to monitor server time offset:", error);
+            console.error(
+                "GUEST ERROR: Failed to monitor server time offset:",
+                error,
+            );
         }
     }
 
@@ -719,14 +725,31 @@
         `;
 
         document.body.appendChild(settingsPopup);
-        document.getElementById("closeSettings").addEventListener("click", hideSettingsPopup);
-        document.getElementById("cancelSettings").addEventListener("click", hideSettingsPopup);
-        document.getElementById("saveSettings").addEventListener("click", saveSettings);
-        document.getElementById("clearConfig").addEventListener("click", clearAllSettings);
-        document.getElementById("copyRoomId").addEventListener("click", () => copySettingsText(document.getElementById("roomIdInput").value.trim(), "copyRoomId"));
-        document.getElementById("roomIdInput").addEventListener("keydown", (e) => {
-            if (e.key === "Enter") saveSettings();
-        });
+        document
+            .getElementById("closeSettings")
+            .addEventListener("click", hideSettingsPopup);
+        document
+            .getElementById("cancelSettings")
+            .addEventListener("click", hideSettingsPopup);
+        document
+            .getElementById("saveSettings")
+            .addEventListener("click", saveSettings);
+        document
+            .getElementById("clearConfig")
+            .addEventListener("click", clearAllSettings);
+        document
+            .getElementById("copyRoomId")
+            .addEventListener("click", () =>
+                copySettingsText(
+                    document.getElementById("roomIdInput").value.trim(),
+                    "copyRoomId",
+                ),
+            );
+        document
+            .getElementById("roomIdInput")
+            .addEventListener("keydown", (e) => {
+                if (e.key === "Enter") saveSettings();
+            });
 
         settingsEscHandler = (e) => {
             if (e.key === "Escape") hideSettingsPopup();
@@ -738,7 +761,8 @@
         ["keydown", "keyup", "keypress"].forEach((evt) => {
             settingsPopup.addEventListener(evt, (e) => {
                 e.stopPropagation();
-                if (evt === "keydown" && e.key === "Escape") hideSettingsPopup();
+                if (evt === "keydown" && e.key === "Escape")
+                    hideSettingsPopup();
             });
         });
 
@@ -749,7 +773,9 @@
 
     async function saveSettings() {
         const newRoomId = document.getElementById("roomIdInput").value.trim();
-        const newDisplayName = document.getElementById("displayNameInput").value.trim();
+        const newDisplayName = document
+            .getElementById("displayNameInput")
+            .value.trim();
 
         if (!newRoomId) {
             alert("Room ID cannot be empty!");
@@ -775,7 +801,9 @@
         if (roomChanged) {
             const firebaseReady = await initializeFirebase();
             if (!firebaseReady) {
-                alert("Room saved, but Firebase could not reconnect. Check the built Firebase config.");
+                alert(
+                    "Room saved, but Firebase could not reconnect. Check the built Firebase config.",
+                );
                 return;
             }
         }
@@ -783,7 +811,9 @@
         hideSettingsPopup();
         showHostStatus(`Settings updated - Room: ${ROOM_ID}`);
         setTimeout(() => {
-            const existingStatus = document.querySelector(".host-status-message");
+            const existingStatus = document.querySelector(
+                ".host-status-message",
+            );
             if (existingStatus) existingStatus.remove();
         }, 3000);
     }
@@ -824,7 +854,10 @@
             stopFollowingHost();
             removeGuestFromDatabase();
             updateRequestControlButton();
-            showNotification("Unsynced - you're watching on your own", "#ff9800");
+            showNotification(
+                "Unsynced - you're watching on your own",
+                "#ff9800",
+            );
         }
     }
 
@@ -1304,7 +1337,8 @@
             notification.style.animation = "wtToastOut 0.25s ease forwards";
             setTimeout(() => {
                 notification.remove();
-                if (container && !container.childElementCount) container.remove();
+                if (container && !container.childElementCount)
+                    container.remove();
             }, 250);
         }, duration);
     }
@@ -1355,7 +1389,11 @@
                 const connected = snapshot.val() === true;
                 if (!connected && wasConnected === true) {
                     hasLostConnection = true;
-                    showNotification("Connection lost - reconnecting…", "#f44336", 6000);
+                    showNotification(
+                        "Connection lost - reconnecting…",
+                        "#f44336",
+                        6000,
+                    );
                 } else if (connected && hasLostConnection) {
                     hasLostConnection = false;
                     showNotification("Reconnected to the room", "#4CAF50");
@@ -1418,7 +1456,10 @@
                         if (!requests[USER_ID]) {
                             pendingControlRequest = false;
                             if (currentControllerId !== USER_ID) {
-                                showNotification("Control request denied by host", "#f44336");
+                                showNotification(
+                                    "Control request denied by host",
+                                    "#f44336",
+                                );
                             }
                         }
                     }
@@ -1564,10 +1605,16 @@
         // Auto-remove this guest from the database if the connection drops
         // (tab closed, network lost) without an explicit unsync.
         try {
-            const guestRef = ref(database, `rooms/${ROOM_ID}/guests/${USER_ID}`);
+            const guestRef = ref(
+                database,
+                `rooms/${ROOM_ID}/guests/${USER_ID}`,
+            );
             await onDisconnect(guestRef).remove();
         } catch (error) {
-            console.error("GUEST ERROR: Failed to set up disconnect cleanup:", error);
+            console.error(
+                "GUEST ERROR: Failed to set up disconnect cleanup:",
+                error,
+            );
         }
 
         console.log("GUEST: Registered in room");
@@ -1629,7 +1676,8 @@
             const seekedListener = () => {
                 if (!watchTogetherEnabled) return;
 
-                const wasProgrammatic = Date.now() - lastProgrammaticSeekAt < 800;
+                const wasProgrammatic =
+                    Date.now() - lastProgrammaticSeekAt < 800;
                 if (
                     !wasProgrammatic &&
                     isFollowingHost &&
@@ -1638,7 +1686,8 @@
                     const expected = getExpectedHostTime();
                     if (
                         expected !== null &&
-                        Math.abs(getCurrentTime() - expected) > SEEK_LOCK_THRESHOLD
+                        Math.abs(getCurrentTime() - expected) >
+                            SEEK_LOCK_THRESHOLD
                     ) {
                         console.log(
                             `GUEST: Seek blocked - snapping back to host (${expected.toFixed(1)}s)`,
@@ -1655,7 +1704,10 @@
                 sendGuestState();
             };
             videoElement.addEventListener("seeked", seekedListener);
-            videoStateListeners.push({ eventName: "seeked", listener: seekedListener });
+            videoStateListeners.push({
+                eventName: "seeked",
+                listener: seekedListener,
+            });
         }
 
         const bufferingLayer = document.querySelector(".buffering-layer-ZZCYp");
@@ -1714,7 +1766,9 @@
             ({ update, ref, onDisconnect }) => {
                 // Cancel the armed disconnect handler since we're leaving cleanly.
                 try {
-                    onDisconnect(ref(database, `rooms/${ROOM_ID}/guests/${USER_ID}`)).cancel();
+                    onDisconnect(
+                        ref(database, `rooms/${ROOM_ID}/guests/${USER_ID}`),
+                    ).cancel();
                 } catch (error) {
                     // Ignore - the disconnect handler may not be set
                 }

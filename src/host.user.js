@@ -22,7 +22,10 @@
     const LUCIDE_ICONS = __LUCIDE_ICONS__;
 
     function lucideIcon(iconName, size = 24) {
-        const icon = LUCIDE_ICONS[iconName] || LUCIDE_ICONS["circle-question-mark"] || "";
+        const icon =
+            LUCIDE_ICONS[iconName] ||
+            LUCIDE_ICONS["circle-question-mark"] ||
+            "";
         return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${icon}</svg>`;
     }
 
@@ -358,7 +361,6 @@
     let isInitializationRunning = false;
     let lastForceSyncId = null;
     let lastForceSyncAt = null;
-    let seekSyncTimer = null;
     let controlPanelDirty = false;
 
     // Shared clock: Firebase's server-time offset gives every device a common
@@ -381,7 +383,10 @@
                 if (typeof offset === "number") serverTimeOffset = offset;
             });
         } catch (error) {
-            console.error("HOST ERROR: Failed to monitor server time offset:", error);
+            console.error(
+                "HOST ERROR: Failed to monitor server time offset:",
+                error,
+            );
         }
     }
 
@@ -724,14 +729,31 @@
         `;
 
         document.body.appendChild(settingsPopup);
-        document.getElementById("closeSettings").addEventListener("click", hideSettingsPopup);
-        document.getElementById("cancelSettings").addEventListener("click", hideSettingsPopup);
-        document.getElementById("saveSettings").addEventListener("click", saveSettings);
-        document.getElementById("clearConfig").addEventListener("click", clearAllSettings);
-        document.getElementById("copyRoomId").addEventListener("click", () => copySettingsText(document.getElementById("roomIdInput").value.trim(), "copyRoomId"));
-        document.getElementById("roomIdInput").addEventListener("keydown", (e) => {
-            if (e.key === "Enter") saveSettings();
-        });
+        document
+            .getElementById("closeSettings")
+            .addEventListener("click", hideSettingsPopup);
+        document
+            .getElementById("cancelSettings")
+            .addEventListener("click", hideSettingsPopup);
+        document
+            .getElementById("saveSettings")
+            .addEventListener("click", saveSettings);
+        document
+            .getElementById("clearConfig")
+            .addEventListener("click", clearAllSettings);
+        document
+            .getElementById("copyRoomId")
+            .addEventListener("click", () =>
+                copySettingsText(
+                    document.getElementById("roomIdInput").value.trim(),
+                    "copyRoomId",
+                ),
+            );
+        document
+            .getElementById("roomIdInput")
+            .addEventListener("keydown", (e) => {
+                if (e.key === "Enter") saveSettings();
+            });
 
         settingsEscHandler = (e) => {
             if (e.key === "Escape") hideSettingsPopup();
@@ -743,7 +765,8 @@
         ["keydown", "keyup", "keypress"].forEach((evt) => {
             settingsPopup.addEventListener(evt, (e) => {
                 e.stopPropagation();
-                if (evt === "keydown" && e.key === "Escape") hideSettingsPopup();
+                if (evt === "keydown" && e.key === "Escape")
+                    hideSettingsPopup();
             });
         });
 
@@ -754,7 +777,9 @@
 
     async function saveSettings() {
         const newRoomId = document.getElementById("roomIdInput").value.trim();
-        const newDisplayName = document.getElementById("displayNameInput").value.trim();
+        const newDisplayName = document
+            .getElementById("displayNameInput")
+            .value.trim();
 
         if (!newRoomId) {
             alert("Room ID cannot be empty!");
@@ -780,7 +805,9 @@
         if (roomChanged) {
             const firebaseReady = await initializeFirebase();
             if (!firebaseReady) {
-                alert("Room saved, but Firebase could not reconnect. Check the built Firebase config.");
+                alert(
+                    "Room saved, but Firebase could not reconnect. Check the built Firebase config.",
+                );
                 return;
             }
         }
@@ -788,7 +815,9 @@
         hideSettingsPopup();
         showGuestStatus(`Settings updated - Room: ${ROOM_ID}`);
         setTimeout(() => {
-            const existingStatus = document.querySelector(".guest-status-display");
+            const existingStatus = document.querySelector(
+                ".guest-status-display",
+            );
             if (existingStatus) existingStatus.remove();
         }, 3000);
     }
@@ -928,7 +957,9 @@
 
     function getGuestDriftSignature(guest) {
         return [
-            Number.isFinite(guest.currentTime) ? guest.currentTime.toFixed(3) : "none",
+            Number.isFinite(guest.currentTime)
+                ? guest.currentTime.toFixed(3)
+                : "none",
             guest.lastUpdated || 0,
             guest.timeReliable !== false,
             !!guest.isPlaying,
@@ -965,7 +996,8 @@
                 : null;
             const guestTime =
                 guestPlaying && guestSampledAt
-                    ? rawGuestTime + Math.max(0, (serverNow() - guestSampledAt) / 1000)
+                    ? rawGuestTime +
+                      Math.max(0, (serverNow() - guestSampledAt) / 1000)
                     : rawGuestTime;
             const timeReliable = guest.timeReliable !== false;
 
@@ -974,7 +1006,9 @@
                 hostTime,
                 guestTime,
                 timeReliable,
-                driftInfo: timeReliable ? getDriftInfo(guestTime, hostTime) : null,
+                driftInfo: timeReliable
+                    ? getDriftInfo(guestTime, hostTime)
+                    : null,
                 sampledAt: serverNow(),
             };
         }
@@ -1162,12 +1196,18 @@
 
         for (const [id, guest] of Object.entries(next)) {
             if (guest && !prev[id]) {
-                showNotification(`${guest.displayName || id} joined the room`, "#4CAF50");
+                showNotification(
+                    `${guest.displayName || id} joined the room`,
+                    "#4CAF50",
+                );
             }
         }
         for (const [id, guest] of Object.entries(prev)) {
             if (guest && !next[id]) {
-                showNotification(`${guest.displayName || id} left the room`, "#f44336");
+                showNotification(
+                    `${guest.displayName || id} left the room`,
+                    "#f44336",
+                );
             }
         }
     }
@@ -1286,7 +1326,8 @@
         const now = Date.now();
 
         for (const [id, guest] of Object.entries(guestStates)) {
-            const buffering = guest && guest.isBuffering === true && !isGuestStale(guest);
+            const buffering =
+                guest && guest.isBuffering === true && !isGuestStale(guest);
             if (buffering) {
                 if (!guestBufferingSince[id]) {
                     guestBufferingSince[id] = now;
@@ -1295,7 +1336,10 @@
                     !guestStuckNotified[id]
                 ) {
                     guestStuckNotified[id] = true;
-                    showNotification(`${guest.displayName || id} is still buffering`, "#ff9800");
+                    showNotification(
+                        `${guest.displayName || id} is still buffering`,
+                        "#ff9800",
+                    );
                 }
             } else {
                 delete guestBufferingSince[id];
@@ -1429,7 +1473,8 @@
             notification.style.animation = "wtToastOut 0.25s ease forwards";
             setTimeout(() => {
                 notification.remove();
-                if (container && !container.childElementCount) container.remove();
+                if (container && !container.childElementCount)
+                    container.remove();
             }, 250);
         }, duration);
     }
@@ -1608,15 +1653,23 @@
             return;
         }
 
-        const guestEntries = Object.entries(guestStates).filter(([, guest]) => guest);
+        const guestEntries = Object.entries(guestStates).filter(
+            ([, guest]) => guest,
+        );
         const guestCount = guestEntries.length;
-        const onlineCount = guestEntries.filter(([, guest]) => !isGuestStale(guest)).length;
+        const onlineCount = guestEntries.filter(
+            ([, guest]) => !isGuestStale(guest),
+        ).length;
         const offlineCount = guestCount - onlineCount;
         const requestCount = Object.keys(controlRequests).length;
         const hostTime = getCurrentTime();
         const hasActionableDrift = guestEntries.some(([guestId, guest]) => {
-            if (guest.timeReliable === false || isGuestStale(guest)) return false;
-            return (guestDriftSnapshots[guestId]?.driftInfo?.absoluteDrift || 0) > 3;
+            if (guest.timeReliable === false || isGuestStale(guest))
+                return false;
+            return (
+                (guestDriftSnapshots[guestId]?.driftInfo?.absoluteDrift || 0) >
+                3
+            );
         });
         const forceSyncButtonLabel = hasActionableDrift
             ? "Force Sync Guests - Drift Detected"
@@ -1667,15 +1720,18 @@
             const guestRowOpacity = isStale ? "0.62" : "1";
 
             const dotColor = isStale ? "#f44336" : "#4CAF50";
-            const dotGlow = isStale ? "rgba(244,67,54,0.6)" : "rgba(76,175,80,0.6)";
+            const dotGlow = isStale
+                ? "rgba(244,67,54,0.6)"
+                : "rgba(76,175,80,0.6)";
             const syncPill = isStale
                 ? `<span style="font-size: 10px; font-weight: 700; letter-spacing: 0.5px; color: #f44336; background: rgba(244,67,54,0.16); padding: 2px 8px; border-radius: 10px;">OFFLINE</span>`
                 : timeReliable && driftInfo
                   ? `<span style="font-size: 10px; font-weight: 700; color: ${driftInfo.color}; background: ${driftInfo.color}22; padding: 2px 8px; border-radius: 10px;">${escapeHtml(driftInfo.label)}</span>`
                   : `<span style="font-size: 10px; color: #aaa;">checking time…</span>`;
-            const bufferingPill = !isStale && guest.isBuffering
-                ? `<span style="font-size: 10px; font-weight: 700; color: #ff9800; background: rgba(255,152,0,0.16); padding: 2px 8px; border-radius: 10px;">BUFFERING</span>`
-                : "";
+            const bufferingPill =
+                !isStale && guest.isBuffering
+                    ? `<span style="font-size: 10px; font-weight: 700; color: #ff9800; background: rgba(255,152,0,0.16); padding: 2px 8px; border-radius: 10px;">BUFFERING</span>`
+                    : "";
             const statusPill = `${syncPill}${bufferingPill}`;
 
             guestHTML += `
@@ -1715,7 +1771,9 @@
                                 : ""
                         }
                         ${
-                            !isStale && isController && currentControllerId !== USER_ID
+                            !isStale &&
+                            isController &&
+                            currentControllerId !== USER_ID
                                 ? `
                             <span style="display: inline-flex; align-items: center; gap: 4px; color: #4CAF50; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; background: rgba(76,175,80,0.15); padding: 3px 8px; border-radius: 10px;">CONTROLLING</span>
                         `
@@ -1751,7 +1809,8 @@
         }
 
         // Preserve the guest list's scroll position across the full re-render.
-        const prevScroll = controlPanel.querySelector(".wt-guest-list")?.scrollTop || 0;
+        const prevScroll =
+            controlPanel.querySelector(".wt-guest-list")?.scrollTop || 0;
 
         controlPanel.innerHTML = `
             <div style="background: linear-gradient(135deg, #FF6B35 0%, #ff8c42 100%); padding: 15px; display: flex; justify-content: space-between; align-items: center;">
@@ -1959,13 +2018,13 @@
             const seekedListener = () => {
                 if (!watchTogetherEnabled) return;
                 sendHostState();
-                clearTimeout(seekSyncTimer);
-                seekSyncTimer = setTimeout(() => {
-                    forceSyncGuests();
-                }, 500);
+                forceSyncGuests();
             };
             videoElement.addEventListener("seeked", seekedListener);
-            videoStateListeners.push({ eventName: "seeked", listener: seekedListener });
+            videoStateListeners.push({
+                eventName: "seeked",
+                listener: seekedListener,
+            });
         }
 
         // Observe play/pause button changes
