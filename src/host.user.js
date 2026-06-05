@@ -426,6 +426,7 @@
     let lastSentTime = 0;
     let guestStates = {};
     let guestDriftSnapshots = {};
+    let guestListenerReady = false;
     let isAnyGuestBuffering = false;
     let currentControllerId = null;
     let controlRequests = {};
@@ -1186,9 +1187,32 @@
 
             lastForceSyncId = syncId;
             updateControlPanel();
+            const syncTargets = Object.values(guestStates).filter(
+                (guest) => guest && !isGuestStale(guest),
+            ).length;
+            showNotification(
+                `Force sync sent to ${syncTargets} guest${syncTargets === 1 ? "" : "s"}`,
+                "#2196F3",
+            );
             console.log("HOST: Force sync issued:", forceSyncState);
         } catch (error) {
             console.error("HOST ERROR: Failed to force sync guests:", error);
+        }
+    }
+
+    // Pop a notification for each guest that joined or left since the last update.
+    function notifyGuestMembershipChanges(prev, next) {
+        if (!guestListenerReady) return;
+
+        for (const [id, guest] of Object.entries(next)) {
+            if (guest && !prev[id]) {
+                showNotification(`${escapeHtml(guest.displayName || id)} joined the room`, "#4CAF50");
+            }
+        }
+        for (const [id, guest] of Object.entries(prev)) {
+            if (guest && !next[id]) {
+                showNotification(`${escapeHtml(guest.displayName || id)} left the room`, "#f44336");
+            }
         }
     }
 
@@ -1202,27 +1226,19 @@
                 const data = snapshot.val();
 
                 // Handle guests
-                if (data && data.guests) {
-                    const guestCount = Object.keys(data.guests).length;
-                    console.log(`HOST: ${guestCount} guest(s) connected`);
+                const newGuests = data && data.guests ? data.guests : {};
+                const guestCount = Object.keys(newGuests).length;
+                console.log(`HOST: ${guestCount} guest(s) connected`);
 
-                    // Update guest states
-                    guestStates = data.guests;
-                    updateGuestDriftSnapshots(guestStates);
+                // Announce who joined / left (skip the first snapshot to avoid spam)
+                notifyGuestMembershipChanges(guestStates, newGuests);
+                guestListenerReady = true;
 
-                    // Check for guest buffering
-                    checkGuestBuffering();
-
-                    // Show guest status in UI
-                    showGuestStatus(guestCount);
-
-                    // Update control panel
-                    updateControlPanel();
-                } else if (data && !data.guests) {
-                    guestStates = {};
-                    guestDriftSnapshots = {};
-                    updateControlPanel();
-                }
+                guestStates = newGuests;
+                updateGuestDriftSnapshots(guestStates);
+                checkGuestBuffering();
+                showGuestStatus(guestCount);
+                updateControlPanel();
 
                 // Update permissions
                 if (data && data.permissions) {

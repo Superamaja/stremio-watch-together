@@ -402,6 +402,15 @@
     let lastReportedPlaybackState = null;
     let needsInitialSync = false;
 
+    // Seek-lock: snap a synced, non-controlling guest back to the host's position
+    // if they try to scrub away. Tracks the host's clock so we can extrapolate the
+    // live position between updates.
+    const SEEK_LOCK_THRESHOLD = 3; // seconds of deviation tolerated before snapping
+    let hostClockTime = null;
+    let hostClockUpdatedAt = 0;
+    let hostClockPlaying = false;
+    let lastProgrammaticSeekAt = 0;
+
     // Initialize Firebase
     async function initializeFirebase() {
         // Check if Firebase config is valid
@@ -865,12 +874,14 @@
             console.log("GUEST: Watch Together ENABLED - Following host");
             startFollowingHost();
             updateRequestControlButton();
+            showNotification("Synced - now following the host", "#4CAF50");
         } else {
             updateSyncButtonState();
             console.log("GUEST: Watch Together DISABLED");
             stopFollowingHost();
             removeGuestFromDatabase();
             updateRequestControlButton();
+            showNotification("Unsynced - you're watching on your own", "#ff9800");
         }
     }
 
@@ -1157,6 +1168,22 @@
     }
 
     // Apply host's state to guest's video
+    // Seek the video programmatically (force sync / seek-lock) so the resulting
+    // "seeked" event isn't mistaken for a user scrub.
+    function seekVideoTo(time) {
+        if (!videoElement || !Number.isFinite(time)) return;
+        lastProgrammaticSeekAt = Date.now();
+        videoElement.currentTime = time;
+    }
+
+    // Estimate the host's current playback position, extrapolating from the last
+    // reported time if the host is playing.
+    function getExpectedHostTime() {
+        if (!Number.isFinite(hostClockTime)) return null;
+        const elapsed = hostClockPlaying ? (Date.now() - hostClockUpdatedAt) / 1000 : 0;
+        return hostClockTime + elapsed;
+    }
+
     function applyHostState(hostState, options = {}) {
         if (!watchTogetherEnabled || !videoElement || !hostState) return;
 
@@ -1168,6 +1195,13 @@
 
         console.log("GUEST: Applying controller state:", hostState);
 
+        // Track the host's clock so seek-lock can extrapolate the live position.
+        if (Number.isFinite(hostState.currentTime)) {
+            hostClockTime = hostState.currentTime;
+            hostClockUpdatedAt = Date.now();
+            hostClockPlaying = !!hostState.isPlaying && !hostState.isBuffering;
+        }
+
         const localIsPlaying = getPlayState();
 
         // Normal updates only report drift; Force Sync is the explicit seek action.
@@ -1175,7 +1209,7 @@
             console.log(
                 `GUEST: Force syncing time: local=${getCurrentTime()}s, host=${hostState.currentTime}s`,
             );
-            videoElement.currentTime = hostState.currentTime;
+            seekVideoTo(hostState.currentTime);
         }
 
         // Sync play/pause state
@@ -1606,7 +1640,6 @@
             videoStateListeners = [
                 "play",
                 "pause",
-                "seeked",
                 "waiting",
                 "playing",
                 "canplay",
@@ -1619,6 +1652,39 @@
                 videoElement.addEventListener(eventName, listener);
                 return { eventName, listener };
             });
+
+            // Seek-lock: when a synced guest who isn't the controller scrubs away,
+            // snap them back to the host's live position.
+            const seekedListener = () => {
+                if (!watchTogetherEnabled) return;
+
+                const wasProgrammatic = Date.now() - lastProgrammaticSeekAt < 800;
+                if (
+                    !wasProgrammatic &&
+                    isFollowingHost &&
+                    currentControllerId !== USER_ID
+                ) {
+                    const expected = getExpectedHostTime();
+                    if (
+                        expected !== null &&
+                        Math.abs(getCurrentTime() - expected) > SEEK_LOCK_THRESHOLD
+                    ) {
+                        console.log(
+                            `GUEST: Seek blocked - snapping back to host (${expected.toFixed(1)}s)`,
+                        );
+                        seekVideoTo(expected);
+                        showNotification(
+                            "Seeking is locked while synced - snapped back to host",
+                            "#ff9800",
+                        );
+                        return;
+                    }
+                }
+
+                sendGuestState();
+            };
+            videoElement.addEventListener("seeked", seekedListener);
+            videoStateListeners.push({ eventName: "seeked", listener: seekedListener });
         }
 
         const bufferingLayer = document.querySelector(".buffering-layer-ZZCYp");
@@ -1651,6 +1717,7 @@
     // Stop following host
     function stopFollowingHost() {
         isFollowingHost = false;
+        hostClockTime = null;
         hideHostStatus();
         hideHostBufferingIcon();
 
