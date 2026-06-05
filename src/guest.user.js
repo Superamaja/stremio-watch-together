@@ -1677,11 +1677,6 @@
         hideSettingsPopup();
         hideHostStatus();
         hideHostBufferingIcon();
-        const existingSyncPill = document.querySelector(
-            ".watch-together-sync-pill",
-        );
-        if (existingSyncPill) existingSyncPill.remove();
-
         if (bufferingObserver) {
             bufferingObserver.disconnect();
             bufferingObserver = null;
