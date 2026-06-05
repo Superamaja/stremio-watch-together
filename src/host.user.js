@@ -1,11 +1,11 @@
 // ==UserScript==
-// @name         Stremio Watch Together - Guest
+// @name         Stremio Watch Together - Host
 // @namespace    https://stremio.com
 // @version      1.0.2
-// @description  Watch Together Guest Script for Stremio Web Player
+// @description  Watch Together Host Script for Stremio Web Player
 // @author       Sagar Chaulagain
-// @updateURL    https://github.com/sagarchaulagai/stremio-watch-together/raw/refs/heads/master/guest.user.js
-// @downloadURL  https://github.com/sagarchaulagai/stremio-watch-together/raw/refs/heads/master/guest.user.js
+// @updateURL    https://github.com/sagarchaulagai/stremio-watch-together/raw/refs/heads/master/host.user.js
+// @downloadURL  https://github.com/sagarchaulagai/stremio-watch-together/raw/refs/heads/master/host.user.js
 // @match        https://web.stremio.com/*
 // @match        https://web.stremio.com/
 // @match        https://web.stremio.com/#*
@@ -16,42 +16,26 @@
 (function () {
     "use strict";
 
-    // Check if we're on the player page or watch together redirect page
-    // Check for page type - Moved to dynamic checks
-    function isPlayerPage() {
-        return window.location.hash.includes("#/player/");
-    }
+    // Check if we're on the player page - Logic moved to URL monitoring loop
+    // if (!window.location.hash.includes('#/player/')) {
+    //    console.log('HOST: Not on player page, skipping script');
+    //    return;
+    // }
 
-    function isWatchTogetherPage() {
-        return (
-            window.location.pathname.includes("/watchtogether") ||
-            window.location.hash.includes("#/watchtogether")
-        );
-    }
-
-    console.log("GUEST: Watch Together Script Loading...");
+    console.log("HOST: Watch Together Script Loading...");
 
     // Set flag to indicate userscript is loaded
     window.stremioWatchTogetherLoaded = true;
 
     // Firebase Configuration (moved to DEFAULT_FIREBASE_CONFIG below)
 
-    // Configuration - CHANGE THIS TO MATCH HOST'S ROOM ID
+    // Configuration - CHANGE THIS
     let ROOM_ID = "room123"; // Default room ID - can be changed via settings
-    const USER_ID = "guest_" + Math.random().toString(36).substr(2, 6);
+    const USER_ID = "host_" + Math.random().toString(36).substr(2, 6);
     let DISPLAY_NAME = "";
 
     // Default Firebase Configuration
-    const DEFAULT_FIREBASE_CONFIG = {
-        "apiKey": "AIzaSyB3ubj3Ged0aEGnsEyBshst7FqKsWUWEho",
-        "authDomain": "stremio-watch-party-91f58.firebaseapp.com",
-        "projectId": "stremio-watch-party-91f58",
-        "storageBucket": "stremio-watch-party-91f58.firebasestorage.app",
-        "messagingSenderId": "709062799848",
-        "appId": "1:709062799848:web:aa2a2bb6c0b9844ed9745d",
-        "measurementId": "G-TDQXG91CVJ",
-        "databaseURL": "https://stremio-watch-party-91f58-default-rtdb.firebaseio.com/"
-};
+    const DEFAULT_FIREBASE_CONFIG = __DEFAULT_FIREBASE_CONFIG__;
 
     let firebaseConfig = { ...DEFAULT_FIREBASE_CONFIG };
 
@@ -71,10 +55,10 @@
                         ...config.firebaseConfig,
                     };
                 if (config.displayName) DISPLAY_NAME = config.displayName;
-                console.log("GUEST: Configuration loaded from localStorage");
+                console.log("HOST: Configuration loaded from localStorage");
             }
         } catch (error) {
-            console.error("GUEST ERROR: Failed to load configuration:", error);
+            console.error("HOST ERROR: Failed to load configuration:", error);
         }
     }
 
@@ -88,9 +72,9 @@
                 lastUpdated: Date.now(),
             };
             localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config));
-            console.log("GUEST: Configuration saved to localStorage");
+            console.log("HOST: Configuration saved to localStorage");
         } catch (error) {
-            console.error("GUEST ERROR: Failed to save configuration:", error);
+            console.error("HOST ERROR: Failed to save configuration:", error);
         }
     }
 
@@ -101,9 +85,9 @@
             ROOM_ID = "room123";
             firebaseConfig = { ...DEFAULT_FIREBASE_CONFIG };
             DISPLAY_NAME = "";
-            console.log("GUEST: Configuration cleared");
+            console.log("HOST: Configuration cleared");
         } catch (error) {
-            console.error("GUEST ERROR: Failed to clear configuration:", error);
+            console.error("HOST ERROR: Failed to clear configuration:", error);
         }
     }
 
@@ -115,23 +99,23 @@
                 const config = JSON.parse(savedConfig);
                 if (config.displayName && config.displayName.trim() !== "") {
                     DISPLAY_NAME = config.displayName;
-                    console.log("GUEST: Loaded display name:", DISPLAY_NAME);
+                    console.log("HOST: Loaded display name:", DISPLAY_NAME);
                     return;
                 }
             }
 
             // Generate new username only if none exists
             if (!DISPLAY_NAME || DISPLAY_NAME.trim() === "") {
-                DISPLAY_NAME = generateCoolUsername("guest_");
+                DISPLAY_NAME = generateCoolUsername("host_");
                 saveConfig();
-                console.log("GUEST: Generated new display name:", DISPLAY_NAME);
+                console.log("HOST: Generated new display name:", DISPLAY_NAME);
             }
         } catch (error) {
             console.error(
-                "GUEST ERROR: Failed to initialize display name:",
+                "HOST ERROR: Failed to initialize display name:",
                 error,
             );
-            DISPLAY_NAME = generateCoolUsername("guest_");
+            DISPLAY_NAME = generateCoolUsername("host_");
         }
     }
 
@@ -299,8 +283,8 @@
         `;
 
         overlay.innerHTML = `
-            <div style="text-align: center; max-width: 500px; padding: 40px; background: rgba(76, 175, 80, 0.1); border: 2px solid #4CAF50; border-radius: 10px;">
-                <h2 style="color: #4CAF50; margin: 0 0 20px 0;">Firebase Configuration Required</h2>
+            <div style="text-align: center; max-width: 500px; padding: 40px; background: rgba(255, 107, 53, 0.1); border: 2px solid #FF6B35; border-radius: 10px;">
+                <h2 style="color: #FF6B35; margin: 0 0 20px 0;">Firebase Configuration Required</h2>
                 <p style="font-size: 1.1em; margin: 0 0 20px 0; line-height: 1.5;">
                     To use Watch Together, you need to configure your Firebase settings first.
                 </p>
@@ -309,7 +293,7 @@
                 </p>
                 <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
                     <button id="openSettings" style="
-                        background: #4CAF50;
+                        background: #FF6B35;
                         color: white;
                         border: none;
                         padding: 12px 24px;
@@ -351,37 +335,40 @@
             });
 
         console.log(
-            "GUEST WARNING: Firebase configuration required message displayed",
+            "HOST WARNING: Firebase configuration required message displayed",
         );
     }
 
     // Global variables
     let app, database, roomRef;
     let watchTogetherEnabled = false;
+    let isBuffering = false;
     let videoElement = null;
     let playPauseButton = null;
     let controlBar = null;
     let watchTogetherButton = null;
     let settingsButton = null;
     let settingsPopup = null;
-    let lastKnownHostState = null;
-    let isFollowingHost = false;
     let bufferingObserver = null;
+    let playPauseObserver = null;
+    let syncInterval = null;
     let videoStateListeners = [];
-    let isGuestBuffering = false;
-    let lastGuestStateSent = 0;
+    let lastSentTime = 0;
+    let guestStates = {};
+    let isAnyGuestBuffering = false;
     let currentControllerId = null;
-    let requestControlButton = null;
+    let controlRequests = {};
+    let controlPanel = null;
     let isScriptActive = false;
     let isInitializationRunning = false;
-    let lastAppliedForceSyncId = null;
+    let lastForceSyncId = null;
 
     // Initialize Firebase
     async function initializeFirebase() {
         // Check if Firebase config is valid
         if (!isFirebaseConfigValid()) {
             console.log(
-                "GUEST WARNING: Firebase not configured. Please configure Firebase settings first.",
+                "HOST WARNING: Firebase not configured. Please configure Firebase settings first.",
             );
             showFirebaseConfigRequired();
             return false;
@@ -390,7 +377,7 @@
         try {
             const { initializeApp } =
                 await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js");
-            const { getDatabase, ref, update, onValue } =
+            const { getDatabase, ref, set, onValue } =
                 await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
 
             // Disconnect existing app if it exists
@@ -406,36 +393,44 @@
             database = getDatabase(app);
             roomRef = ref(database, "rooms/" + ROOM_ID);
 
-            console.log("GUEST: Firebase initialized for room:", ROOM_ID);
+            console.log("HOST: Firebase initialized for room:", ROOM_ID);
 
-            // Register as guest in the room
-            await update(roomRef, {
-                ["guests/" + USER_ID]: {
+            // Get current video URL
+            const videoURL = getCurrentVideoURL();
+
+            // Initialize room data
+            await set(roomRef, {
+                roomId: ROOM_ID,
+                videoURL: videoURL,
+                host: {
                     userId: USER_ID,
                     displayName: DISPLAY_NAME,
-                    currentTime: getCurrentTime(),
-                    isPlaying: getPlayState(),
-                    isBuffering: isVideoBuffering(),
-                    duration: getVideoDuration(),
-                    connected: true,
-                    lastSeen: Date.now(),
+                    currentTime: 0,
+                    isPlaying: false,
+                    isBuffering: false,
+                    lastUpdated: Date.now(),
                 },
+                guests: {},
+                permissions: {
+                    controllerId: USER_ID, // Host starts with control
+                },
+                status: "waiting_for_guests",
             });
 
-            console.log("GUEST: Registered in room");
+            // Initialize current controller
+            currentControllerId = USER_ID;
+
+            console.log("HOST: Room initialized");
             return true;
         } catch (error) {
-            console.error(
-                "GUEST ERROR: Firebase initialization failed:",
-                error,
-            );
+            console.error("HOST ERROR: Firebase initialization failed:", error);
             return false;
         }
     }
 
     // Find DOM elements with multiple selectors
     function findDOMElements() {
-        console.log("🔍 GUEST: Searching for DOM elements...");
+        console.log("🔍 HOST: Searching for DOM elements...");
 
         // Try multiple selectors for video element
         videoElement =
@@ -458,18 +453,18 @@
                 'button[title="Play"], button[title="Pause"]',
             );
 
-        console.log("🔍 GUEST: Found elements:", {
+        console.log("🔍 HOST: Found elements:", {
             video: !!videoElement,
             controlBar: !!controlBar,
             playPauseButton: !!playPauseButton,
         });
 
         if (videoElement && controlBar && playPauseButton) {
-            console.log("GUEST: All DOM elements found");
+            console.log("HOST: All DOM elements found");
             return true;
         }
 
-        console.log("GUEST ERROR: Missing elements:", {
+        console.log("HOST ERROR: Missing elements:", {
             video: !videoElement,
             controlBar: !controlBar,
             playPauseButton: !playPauseButton,
@@ -487,12 +482,12 @@
         watchTogetherButton = document.createElement("div");
         watchTogetherButton.className =
             "control-bar-button-FQUsj button-container-zVLH6";
-        watchTogetherButton.title = "Watch Together (GUEST)";
+        watchTogetherButton.title = "Watch Together (HOST)";
         watchTogetherButton.style.cssText = `
             cursor: pointer;
-            border: 2px solid #4CAF50;
+            border: 2px solid #FF6B35;
             border-radius: 4px;
-            background: rgba(76, 175, 80, 0.1);
+            background: rgba(255, 107, 53, 0.1);
         `;
 
         watchTogetherButton.innerHTML = `
@@ -504,91 +499,40 @@
         controlBar.appendChild(watchTogetherButton);
         watchTogetherButton.addEventListener("click", toggleWatchTogether);
 
-        console.log("GUEST: Watch Together button created");
+        console.log("HOST: Watch Together button created");
     }
 
-    // Create Request Control button
-    function createRequestControlButton() {
-        if (requestControlButton) {
-            requestControlButton.remove();
+    // Create Control Panel toggle button
+    function createControlPanelButton() {
+        const existingButton = document.querySelector(
+            ".control-panel-toggle-button",
+        );
+        if (existingButton) {
+            existingButton.remove();
         }
 
-        requestControlButton = document.createElement("div");
-        requestControlButton.className =
-            "control-bar-button-FQUsj button-container-zVLH6 request-control-button";
-        requestControlButton.title = "Request Control";
-        requestControlButton.style.cssText = `
+        const panelButton = document.createElement("div");
+        panelButton.className =
+            "control-bar-button-FQUsj button-container-zVLH6 control-panel-toggle-button";
+        panelButton.title = "Control Panel";
+        panelButton.style.cssText = `
             cursor: pointer;
             border: 2px solid #9C27B0;
-            border-radius: 8px;
-            background: linear-gradient(135deg, rgba(156, 39, 176, 0.15) 0%, rgba(156, 39, 176, 0.25) 100%);
+            border-radius: 4px;
+            background: rgba(156, 39, 176, 0.1);
             margin-left: 5px;
-            display: flex;
-            position: relative;
-            overflow: hidden;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 2px 8px rgba(156, 39, 176, 0.2);
-            backdrop-filter: blur(10px);
-            justify-content: center;
-            align-items: center;
         `;
 
-        // Add hover and active states
-        const style = document.createElement("style");
-        style.textContent = `
-            .request-control-button:hover {
-                border-color: #E91E63 !important;
-                background: linear-gradient(135deg, rgba(233, 30, 99, 0.2) 0%, rgba(233, 30, 99, 0.35) 100%) !important;
-                box-shadow: 0 4px 16px rgba(233, 30, 99, 0.4) !important;
-                transform: translateY(-1px) !important;
-            }
-            .request-control-button:active {
-                transform: translateY(0px) scale(0.98) !important;
-                box-shadow: 0 2px 8px rgba(156, 39, 176, 0.3) !important;
-            }
-            .request-control-button::before {
-                content: '';
-                position: absolute;
-                top: 0;
-                left: -100%;
-                width: 100%;
-                height: 100%;
-                background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-                transition: left 0.6s;
-            }
-            .request-control-button:hover::before {
-                left: 100%;
-            }
-        `;
-        document.head.appendChild(style);
-
-        requestControlButton.innerHTML = `
-            <svg viewBox="0 0 24 24" style="width:24px;height:24px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3));">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" fill="white"/>
+        panelButton.innerHTML = `
+            <svg class="icon-qy6I6" viewBox="0 0 24 24" style="width:24px;height:24px;">
+                <path d="M12 2l-5.5 9h11L12 2zm0 3.84L13.93 9h-3.87L12 5.84zM17.5 13c-2.49 0-4.5 2.01-4.5 4.5s2.01 4.5 4.5 4.5 4.5-2.01 4.5-4.5-2.01-4.5-4.5-4.5zm0 7c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5zM3 21.5h8v-8H3v8zm2-6h4v4H5v-4z" fill="currentColor"/>
             </svg>
         `;
 
-        controlBar.appendChild(requestControlButton);
-        requestControlButton.addEventListener("click", requestControl);
+        controlBar.appendChild(panelButton);
+        panelButton.addEventListener("click", toggleControlPanel);
 
-        console.log("GUEST: Request Control button created");
-    }
-
-    // Update Request Control button state
-    function updateRequestControlButton() {
-        if (!requestControlButton) return;
-
-        if (currentControllerId === USER_ID) {
-            // We have control - hide the button
-            requestControlButton.style.display = "none";
-            requestControlButton.title = "You have control";
-        } else if (watchTogetherEnabled) {
-            // Show button when not controlling
-            requestControlButton.style.display = "flex";
-            requestControlButton.title = "Request Control";
-        } else {
-            requestControlButton.style.display = "none";
-        }
+        console.log("HOST: Control panel button created");
     }
 
     // Create Settings button
@@ -618,7 +562,7 @@
         controlBar.appendChild(settingsButton);
         settingsButton.addEventListener("click", showSettingsPopup);
 
-        console.log("GUEST: Settings button created");
+        console.log("HOST: Settings button created");
     }
 
     // Parse easy Firebase configuration
@@ -789,14 +733,14 @@
             );
             if (configMatch) {
                 console.log(
-                    "GUEST DEBUG: Found firebaseConfig object:",
+                    "HOST DEBUG: Found firebaseConfig object:",
                     configMatch[1],
                 );
                 // Use eval to parse the object (safe in this context as it's user-provided config)
                 configObj = eval("(" + configMatch[1] + ")");
             } else {
                 console.log(
-                    "GUEST DEBUG: No firebaseConfig match found, trying direct parse:",
+                    "HOST DEBUG: No firebaseConfig match found, trying direct parse:",
                     cleanText,
                 );
                 // Try to parse as direct object
@@ -853,12 +797,12 @@
             }
 
             console.log(
-                "GUEST: Firebase configuration parsed:",
+                "HOST: Firebase configuration parsed:",
                 extractedConfig,
             );
         } catch (error) {
             console.error(
-                "GUEST ERROR: Failed to parse Firebase configuration:",
+                "HOST ERROR: Failed to parse Firebase configuration:",
                 error,
             );
             alert(
@@ -897,11 +841,11 @@
         shareContent.style.display = "none";
 
         if (tab === "easy") {
-            easyTab.style.background = "#4CAF50";
+            easyTab.style.background = "#FF6B35";
             easyTab.style.color = "white";
             easyContent.style.display = "block";
         } else if (tab === "manual") {
-            manualTab.style.background = "#4CAF50";
+            manualTab.style.background = "#FF6B35";
             manualTab.style.color = "white";
             manualContent.style.display = "block";
         } else if (tab === "share") {
@@ -928,7 +872,7 @@
             document.getElementById("shareableConfig");
         if (shareableConfigTextarea) {
             shareableConfigTextarea.value = configCode;
-            console.log("GUEST: Generated shareable configuration");
+            console.log("HOST: Generated shareable configuration");
         }
     }
 
@@ -951,10 +895,10 @@
                     copyButton.textContent = originalText;
                     copyButton.style.background = "#666";
                 }, 2000);
-                console.log("GUEST: Configuration copied to clipboard");
+                console.log("HOST: Configuration copied to clipboard");
             } catch (error) {
                 console.error(
-                    "GUEST ERROR: Failed to copy configuration:",
+                    "HOST ERROR: Failed to copy configuration:",
                     error,
                 );
                 alert("Failed to copy configuration. Please copy manually.");
@@ -974,7 +918,7 @@
             left: 50%;
             transform: translate(-50%, -50%);
             background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-            border: 2px solid #4CAF50;
+            border: 2px solid #FF6B35;
             border-radius: 12px;
             padding: 0;
             z-index: 10000;
@@ -988,39 +932,49 @@
         `;
 
         settingsPopup.innerHTML = `
-            <div style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); padding: 20px; color: white;">
+            <div style="background: linear-gradient(135deg, #FF6B35 0%, #ff8c42 100%); padding: 20px; color: white;">
                 <h3 style="margin: 0; font-size: 24px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">Watch Together Settings</h3>
                 <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 14px;">Configure your room and Firebase settings</p>
             </div>
 
             <div style="padding: 25px; max-height: calc(95vh - 120px); overflow-y: auto;">
                 <div style="margin-bottom: 30px;">
-                    <h4 style="margin: 0 0 15px 0; color: #4CAF50; font-size: 18px; font-weight: 600; border-bottom: 2px solid #333; padding-bottom: 8px;">Room Configuration</h4>
+                    <h4 style="margin: 0 0 15px 0; color: #FF6B35; font-size: 18px; font-weight: 600; border-bottom: 2px solid #333; padding-bottom: 8px;">Room Configuration</h4>
                     <div style="margin-bottom: 20px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #e0e0e0;">Display Name:</label>
-                        <input type="text" id="displayNameInput" value="${DISPLAY_NAME || ""}"
-                               style="width: 100%; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; color: white; font-size: 14px; transition: border-color 0.3s ease;"
-                               onfocus="this.style.borderColor='#4CAF50'" onblur="this.style.borderColor='#444'">
-                        <small style="color: #aaa; font-size: 12px; margin-top: 5px; display: block;">This name is shown to the host. Leave empty to auto-generate.</small>
+                        <label style=\"display: block; margin-bottom: 8px; font-weight: 600; color: #e0e0e0;\">Display Name:</label>
+                        <input type=\"text\" id=\"displayNameInput\" value=\"${DISPLAY_NAME || ""}\"
+                               style=\"width: 100%; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; color: white; font-size: 14px; transition: border-color 0.3s ease;\"
+                               onfocus=\"this.style.borderColor='#FF6B35'\" onblur=\"this.style.borderColor='#444'\">
+                        <small style=\"color: #aaa; font-size: 12px; margin-top: 5px; display: block;\">This name is shown to guests. Leave empty to auto-generate.</small>
                     </div>
                     <div style="margin-bottom: 20px;">
                         <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #e0e0e0;">Room ID:</label>
                         <input type="text" id="roomIdInput" value="${ROOM_ID}"
                                style="width: 100%; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; color: white; font-size: 14px; transition: border-color 0.3s ease;"
-                               onfocus="this.style.borderColor='#4CAF50'" onblur="this.style.borderColor='#444'">
-                        <small style="color: #aaa; font-size: 12px; margin-top: 5px; display: block;">Enter the same Room ID as the host</small>
+                               onfocus="this.style.borderColor='#FF6B35'" onblur="this.style.borderColor='#444'">
+                        <small style="color: #aaa; font-size: 12px; margin-top: 5px; display: block;">Share this Room ID with your guests</small>
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #e0e0e0;">Shareable Link:</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="shareableLink" value="https://web.stremio.com/watchtogether?room=${ROOM_ID}"
+                                   readonly style="flex: 1; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #1a1a1a; color: #4CAF50; font-size: 12px; font-family: 'Courier New', monospace;">
+                            <button id="copyLink" style="padding: 12px 16px; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; transition: transform 0.2s ease;"
+                                    onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">Copy</button>
+                        </div>
+                        <small style="color: #aaa; font-size: 12px; margin-top: 5px; display: block;">Guests can use this link to automatically join your room</small>
                     </div>
                 </div>
 
                 <div style="margin-bottom: 30px;">
-                    <h4 style="margin: 0 0 20px 0; color: #4CAF50; font-size: 18px; font-weight: 600; border-bottom: 2px solid #333; padding-bottom: 8px;">Firebase Configuration</h4>
+                    <h4 style="margin: 0 0 20px 0; color: #FF6B35; font-size: 18px; font-weight: 600; border-bottom: 2px solid #333; padding-bottom: 8px;">Firebase Configuration</h4>
 
                     <!-- Tab Navigation -->
                     <div style="display: flex; border-bottom: 2px solid #333; margin-bottom: 25px; background: #2a2a2a; border-radius: 8px; padding: 4px;">
                         <button id="easyConfigTab" class="config-tab active" style="
                             flex: 1;
                             padding: 12px 20px;
-                            background: #4CAF50;
+                            background: #FF6B35;
                             color: white;
                             border: none;
                             border-radius: 6px;
@@ -1057,21 +1011,21 @@
 
                     <!-- Easy Configuration Tab -->
                     <div id="easyConfigContent" class="config-content" style="display: block;">
-                        <div style="padding: 20px; background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.05) 100%); border: 2px solid #4CAF50; border-radius: 10px;">
+                        <div style="padding: 20px; background: linear-gradient(135deg, rgba(255, 107, 53, 0.1) 0%, rgba(255, 140, 66, 0.05) 100%); border: 2px solid #FF6B35; border-radius: 10px;">
                             <p style="margin: 0 0 15px 0; font-size: 14px; color: #e0e0e0; line-height: 1.5;">Paste your complete Firebase configuration object here:</p>
                             <textarea id="easyFirebaseConfig" placeholder="const firebaseConfig = {
     apiKey: &quot;yourApiKeyFromFirebase&quot;,
     authDomain: &quot;yourAuthDomainFromFirebase&quot;,
     projectId: &quot;yourProjectIdFromFirebase&quot;,
     storageBucket: &quot;yourStorageBucket.firebasestorage.app&quot;,
-    messagingSenderId: &quot;918854225070&quot;,
+    messagingSenderId: &quot;yourMessagingSenderIdFromFirebase&quot;,
     appId: &quot;yourAppIdFromFirebase&quot;,
     measurementId: &quot;yourMeasurementIdFromFirebase&quot;,
     databaseURL: &quot;yourDatabaseUrlFromFirebase&quot;
 };"
                                       style="width: 100%; height: 160px; padding: 15px; border: 2px solid #444; border-radius: 8px; background: #1a1a1a; color: #e0e0e0; font-size: 12px; font-family: 'Courier New', monospace; resize: vertical; line-height: 1.4;"></textarea>
                             <div style="display: flex; gap: 12px; margin-top: 15px;">
-                                <button id="parseFirebaseConfig" style="padding: 12px 24px; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: transform 0.2s ease;"
+                                <button id="parseFirebaseConfig" style="padding: 12px 24px; background: linear-gradient(135deg, #FF6B35 0%, #ff8c42 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: transform 0.2s ease;"
                                         onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">Parse Configuration</button>
                                 <button id="clearEasyConfig" style="padding: 12px 24px; background: #666; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; transition: transform 0.2s ease;"
                                         onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">Clear</button>
@@ -1094,49 +1048,49 @@
                                     <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #e0e0e0;">API Key:</label>
                                     <input type="text" id="apiKeyInput" value="${firebaseConfig.apiKey}"
                                            style="width: 100%; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; color: white; font-size: 14px; transition: border-color 0.3s ease;"
-                                           onfocus="this.style.borderColor='#4CAF50'" onblur="this.style.borderColor='#444'">
+                                           onfocus="this.style.borderColor='#FF6B35'" onblur="this.style.borderColor='#444'">
                                 </div>
                                 <div>
                                     <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #e0e0e0;">Auth Domain:</label>
                                     <input type="text" id="authDomainInput" value="${firebaseConfig.authDomain}"
                                            style="width: 100%; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; color: white; font-size: 14px; transition: border-color 0.3s ease;"
-                                           onfocus="this.style.borderColor='#4CAF50'" onblur="this.style.borderColor='#444'">
+                                           onfocus="this.style.borderColor='#FF6B35'" onblur="this.style.borderColor='#444'">
                                 </div>
                                 <div>
                                     <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #e0e0e0;">Project ID:</label>
                                     <input type="text" id="projectIdInput" value="${firebaseConfig.projectId}"
                                            style="width: 100%; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; color: white; font-size: 14px; transition: border-color 0.3s ease;"
-                                           onfocus="this.style.borderColor='#4CAF50'" onblur="this.style.borderColor='#444'">
+                                           onfocus="this.style.borderColor='#FF6B35'" onblur="this.style.borderColor='#444'">
                                 </div>
                                 <div>
                                     <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #e0e0e0;">Storage Bucket:</label>
                                     <input type="text" id="storageBucketInput" value="${firebaseConfig.storageBucket}"
                                            style="width: 100%; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; color: white; font-size: 14px; transition: border-color 0.3s ease;"
-                                           onfocus="this.style.borderColor='#4CAF50'" onblur="this.style.borderColor='#444'">
+                                           onfocus="this.style.borderColor='#FF6B35'" onblur="this.style.borderColor='#444'">
                                 </div>
                                 <div>
                                     <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #e0e0e0;">Messaging Sender ID:</label>
                                     <input type="text" id="messagingSenderIdInput" value="${firebaseConfig.messagingSenderId}"
                                            style="width: 100%; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; color: white; font-size: 14px; transition: border-color 0.3s ease;"
-                                           onfocus="this.style.borderColor='#4CAF50'" onblur="this.style.borderColor='#444'">
+                                           onfocus="this.style.borderColor='#FF6B35'" onblur="this.style.borderColor='#444'">
                                 </div>
                                 <div>
                                     <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #e0e0e0;">App ID:</label>
                                     <input type="text" id="appIdInput" value="${firebaseConfig.appId}"
                                            style="width: 100%; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; color: white; font-size: 14px; transition: border-color 0.3s ease;"
-                                           onfocus="this.style.borderColor='#4CAF50'" onblur="this.style.borderColor='#444'">
+                                           onfocus="this.style.borderColor='#FF6B35'" onblur="this.style.borderColor='#444'">
                                 </div>
                                 <div>
                                     <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #e0e0e0;">Measurement ID:</label>
                                     <input type="text" id="measurementIdInput" value="${firebaseConfig.measurementId}"
                                            style="width: 100%; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; color: white; font-size: 14px; transition: border-color 0.3s ease;"
-                                           onfocus="this.style.borderColor='#4CAF50'" onblur="this.style.borderColor='#444'">
+                                           onfocus="this.style.borderColor='#FF6B35'" onblur="this.style.borderColor='#444'">
                                 </div>
                                 <div>
                                     <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #e0e0e0;">Database URL:</label>
                                     <input type="text" id="databaseUrlInput" value="${firebaseConfig.databaseURL}"
                                            style="width: 100%; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; color: white; font-size: 14px; transition: border-color 0.3s ease;"
-                                           onfocus="this.style.borderColor='#4CAF50'" onblur="this.style.borderColor='#444'">
+                                           onfocus="this.style.borderColor='#FF6B35'" onblur="this.style.borderColor='#444'">
                                 </div>
                             </div>
                             <small style="color: #aaa; font-size: 12px; display: block; text-align: center; margin-top: 10px;">Get these values from your Firebase project settings</small>
@@ -1147,7 +1101,7 @@
                     <div id="shareConfigContent" class="config-content" style="display: none;">
                         <div style="padding: 20px; background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.05) 100%); border: 2px solid #4CAF50; border-radius: 10px;">
                             <h5 style="margin: 0 0 15px 0; color: #4CAF50; font-size: 16px; font-weight: 600;">Share Your Firebase Configuration</h5>
-                            <p style="margin: 0 0 20px 0; font-size: 14px; color: #e0e0e0; line-height: 1.5;">Generate a shareable configuration that other guests can easily import:</p>
+                            <p style="margin: 0 0 20px 0; font-size: 14px; color: #e0e0e0; line-height: 1.5;">Generate a shareable configuration that guests can easily import:</p>
 
                             <div style="margin-bottom: 20px;">
                                 <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #e0e0e0;">Configuration Code:</label>
@@ -1162,7 +1116,7 @@
                             </div>
 
                             <div style="background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 8px; border-left: 4px solid #4CAF50;">
-                                <h6 style="margin: 0 0 10px 0; color: #4CAF50; font-size: 14px; font-weight: 600;">Instructions for Other Guests:</h6>
+                                <h6 style="margin: 0 0 10px 0; color: #4CAF50; font-size: 14px; font-weight: 600;">Instructions for Guests:</h6>
                                 <ol style="margin: 0; padding-left: 20px; color: #e0e0e0; font-size: 13px; line-height: 1.6;">
                                     <li>Copy the configuration code above</li>
                                     <li>Open Watch Together settings in their browser</li>
@@ -1183,7 +1137,7 @@
                     <div style="display: flex; gap: 12px;">
                         <button id="cancelSettings" style="padding: 12px 20px; background: #666; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: transform 0.2s ease;"
                                 onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">Cancel</button>
-                        <button id="saveSettings" style="padding: 12px 24px; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: transform 0.2s ease;"
+                        <button id="saveSettings" style="padding: 12px 24px; background: linear-gradient(135deg, #FF6B35 0%, #ff8c42 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: transform 0.2s ease;"
                                 onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">Save Settings</button>
                     </div>
                 </div>
@@ -1203,10 +1157,16 @@
             .getElementById("clearConfig")
             .addEventListener("click", clearAllSettings);
         document
+            .getElementById("copyLink")
+            .addEventListener("click", copyShareableLink);
+        document
             .getElementById("roomIdInput")
             .addEventListener("keypress", (e) => {
                 if (e.key === "Enter") saveSettings();
             });
+        document
+            .getElementById("roomIdInput")
+            .addEventListener("input", updateShareableLink);
 
         // Easy configuration event listeners
         document
@@ -1250,7 +1210,7 @@
         document.getElementById("roomIdInput").focus();
         document.getElementById("roomIdInput").select();
 
-        console.log("GUEST: Settings popup shown");
+        console.log("HOST: Settings popup shown");
     }
 
     // Hide settings popup
@@ -1259,6 +1219,36 @@
             settingsPopup.remove();
             settingsPopup = null;
         }
+    }
+
+    // Copy shareable link to clipboard
+    function copyShareableLink() {
+        const linkInput = document.getElementById("shareableLink");
+        linkInput.select();
+        linkInput.setSelectionRange(0, 99999); // For mobile devices
+
+        try {
+            document.execCommand("copy");
+            const copyButton = document.getElementById("copyLink");
+            const originalText = copyButton.textContent;
+            copyButton.textContent = "Copied!";
+            copyButton.style.background = "#4CAF50";
+            setTimeout(() => {
+                copyButton.textContent = originalText;
+                copyButton.style.background = "#4CAF50";
+            }, 2000);
+            console.log("HOST: Shareable link copied to clipboard");
+        } catch (error) {
+            console.error("HOST ERROR: Failed to copy link:", error);
+            alert("Failed to copy link. Please copy manually.");
+        }
+    }
+
+    // Update shareable link when room ID changes
+    function updateShareableLink() {
+        const roomId = document.getElementById("roomIdInput").value;
+        const linkInput = document.getElementById("shareableLink");
+        linkInput.value = `https://web.stremio.com/watchtogether?room=${roomId}`;
     }
 
     // Clear all settings
@@ -1270,7 +1260,7 @@
         ) {
             clearConfig();
             hideSettingsPopup();
-            showHostStatus("Settings cleared - reloading...");
+            showGuestStatus("Settings cleared - reloading...");
             setTimeout(() => {
                 location.reload();
             }, 2000);
@@ -1336,11 +1326,11 @@
             return;
         }
 
-        console.log(`GUEST: Updating configuration...`);
+        console.log(`HOST: Updating configuration...`);
 
-        // Stop current following if running
-        if (isFollowingHost) {
-            stopFollowingHost();
+        // Stop current sync if running
+        if (watchTogetherEnabled) {
+            stopSync();
         }
 
         // Update configuration
@@ -1354,16 +1344,16 @@
         // Reinitialize Firebase with new config
         const firebaseReady = await initializeFirebase();
         if (firebaseReady) {
-            console.log(`GUEST: Successfully updated configuration`);
+            console.log(`HOST: Successfully updated configuration`);
             hideSettingsPopup();
 
             // Show success message
-            showHostStatus(
+            showGuestStatus(
                 `Configuration updated - Room: ${ROOM_ID}${DISPLAY_NAME ? " - Name: " + DISPLAY_NAME : ""}`,
             );
             setTimeout(() => {
                 const existingStatus = document.querySelector(
-                    ".host-status-message",
+                    ".guest-status-display",
                 );
                 if (existingStatus) existingStatus.remove();
             }, 3000);
@@ -1385,17 +1375,17 @@
         watchTogetherEnabled = !watchTogetherEnabled;
 
         if (watchTogetherEnabled) {
-            watchTogetherButton.style.backgroundColor = "#4CAF50";
+            watchTogetherButton.style.backgroundColor = "#FF6B35";
             watchTogetherButton.style.opacity = "1";
-            console.log("GUEST: Watch Together ENABLED - Following host");
-            startFollowingHost();
-            updateRequestControlButton();
+            console.log(
+                "HOST: Watch Together ENABLED - You are controlling playback",
+            );
+            startSync();
         } else {
             watchTogetherButton.style.backgroundColor = "";
             watchTogetherButton.style.opacity = "0.7";
-            console.log("GUEST: Watch Together DISABLED");
-            stopFollowingHost();
-            updateRequestControlButton();
+            console.log("HOST: Watch Together DISABLED");
+            stopSync();
         }
     }
 
@@ -1445,7 +1435,7 @@
         }
     }
 
-    // Check if guest video is buffering
+    // Check if video is buffering
     function isVideoBuffering() {
         if (videoElement) {
             return (
@@ -1479,6 +1469,22 @@
         return `${minutes}:${String(secs).padStart(2, "0")}`;
     }
 
+    function getDriftInfo(guestTime) {
+        const drift = (guestTime || 0) - getCurrentTime();
+        const absoluteDrift = Math.abs(drift);
+        const color =
+            absoluteDrift <= 1.5
+                ? "#4CAF50"
+                : absoluteDrift <= 4
+                  ? "#ff9800"
+                  : "#f44336";
+        const label =
+            absoluteDrift <= 0.5
+                ? "in sync"
+                : `${drift > 0 ? "+" : "-"}${absoluteDrift.toFixed(1)}s`;
+        return { drift, absoluteDrift, color, label };
+    }
+
     // Check if movie has loaded (timer shows actual time instead of --:--:--)
     function isMovieLoaded() {
         const timerElement = document.querySelector(".label-QFbsS");
@@ -1489,23 +1495,11 @@
         return !timeStr.includes("--");
     }
 
-    // Check if we're on the watch together redirect page
-    function isOnWatchTogetherPage() {
-        return (
-            window.location.pathname.includes("/watchtogether") ||
-            window.location.hash.includes("#/watchtogether")
-        );
-    }
-
-    // Redirect to host's video URL
-    function redirectToHostVideo(hostVideoURL) {
-        if (hostVideoURL && hostVideoURL !== window.location.href) {
-            console.log("GUEST: Redirecting to host video:", hostVideoURL);
-            showHostStatus("Redirecting to host video...");
-            setTimeout(() => {
-                window.location.href = hostVideoURL;
-            }, 2000);
-        }
+    // Get current video URL
+    function getCurrentVideoURL() {
+        const currentURL = window.location.href;
+        console.log("HOST: Current URL:", currentURL);
+        return currentURL;
     }
 
     // Validate if URL is a valid Stremio video URL
@@ -1520,112 +1514,6 @@
         } catch (error) {
             return false;
         }
-    }
-
-    // Show watch together redirect page
-    function showWatchTogetherRedirectPage() {
-        // Clear the page content
-        document.body.innerHTML = "";
-
-        // Create redirect page with embedded HTML content
-        const redirectPage = document.createElement("div");
-        redirectPage.style.cssText = `
-            margin: 0;
-            padding: 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            font-family: Arial, sans-serif;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            color: white;
-        `;
-
-        redirectPage.innerHTML = `
-            <div style="text-align: center; max-width: 600px; padding: 40px;">
-                <h1 style="font-size: 3em; margin: 0 0 20px 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">
-                    Watch Together
-                </h1>
-                <p style="font-size: 1.2em; margin: 0 0 30px 0; opacity: 0.9;">
-                    Loading Stremio Watch Together...
-                </p>
-                <div style="margin: 30px 0;">
-                    <div style="
-                        width: 50px;
-                        height: 50px;
-                        border: 4px solid rgba(255,255,255,0.3);
-                        border-top: 4px solid white;
-                        border-radius: 50%;
-                        animation: spin 1s linear infinite;
-                        margin: 0 auto;
-                    "></div>
-                </div>
-                <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 10px; margin: 20px 0;">
-                    <div style="font-size: 1.2em; font-weight: bold; margin: 10px 0;">
-                        Room ID: <strong>${ROOM_ID}</strong>
-                    </div>
-                    <p style="font-size: 1em; margin: 10px 0; opacity: 0.9;">
-                        Make sure you have the Stremio Watch Together userscript installed!
-                    </p>
-                </div>
-                <p style="font-size: 0.9em; margin: 10px 0; opacity: 0.7;">
-                    Waiting for host to start the video...
-                </p>
-                <div style="margin-top: 30px;">
-                    <button id="manualConnect" style="
-                        background: rgba(255,255,255,0.2);
-                        border: 2px solid white;
-                        color: white;
-                        padding: 12px 24px;
-                        border-radius: 25px;
-                        cursor: pointer;
-                        font-size: 1em;
-                        transition: all 0.3s ease;
-                    " onmouseover="this.style.background='rgba(255,255,255,0.3)'"
-                       onmouseout="this.style.background='rgba(255,255,255,0.2)'">
-                        Manual Connect
-                    </button>
-                </div>
-                <div id="userscriptStatus" style="margin-top: 20px; font-size: 0.9em; opacity: 0.8;">
-                    Checking for userscript...
-                </div>
-            </div>
-            <style>
-                @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-            </style>
-        `;
-
-        document.body.appendChild(redirectPage);
-
-        // Add manual connect functionality
-        document
-            .getElementById("manualConnect")
-            .addEventListener("click", () => {
-                const newRoomId = prompt("Enter Room ID:", ROOM_ID);
-                if (newRoomId && newRoomId !== ROOM_ID) {
-                    ROOM_ID = newRoomId;
-                    location.reload();
-                }
-            });
-
-        // Check if userscript is loaded
-        setTimeout(() => {
-            const statusDiv = document.getElementById("userscriptStatus");
-            if (typeof window.stremioWatchTogetherLoaded === "undefined") {
-                statusDiv.innerHTML =
-                    "WARNING: Stremio Watch Together userscript not detected!<br>Please install the userscript and refresh the page.";
-                statusDiv.style.color = "#ffcc00";
-            } else {
-                statusDiv.innerHTML =
-                    "SUCCESS: Userscript loaded successfully!";
-                statusDiv.style.color = "#4CAF50";
-            }
-        }, 2000);
-
-        console.log("GUEST: Watch Together redirect page displayed");
     }
 
     // Get controller state from Firebase data
@@ -1649,58 +1537,244 @@
         return null;
     }
 
-    // Apply host's state to guest's video
-    function applyHostState(hostState, options = {}) {
-        if (!watchTogetherEnabled || !videoElement || !hostState) return;
+    // Apply controller state to host's video
+    function applyControllerState(controllerState) {
+        if (!watchTogetherEnabled || !videoElement || !controllerState) return;
 
-        // If we have control, don't apply host state
-        if (currentControllerId === USER_ID) {
-            console.log("GUEST: Ignoring controller state - we have control");
-            return;
-        }
+        console.log("HOST: Applying controller state:", controllerState);
 
-        console.log("GUEST: Applying controller state:", hostState);
-
-        const timeDiff = Math.abs(getCurrentTime() - hostState.currentTime);
+        const currentTime = getCurrentTime();
+        const timeDiff = Math.abs(
+            currentTime - (controllerState.currentTime || 0),
+        );
         const localIsPlaying = getPlayState();
 
-        // Sync time if forced or if difference is more than 3 seconds
-        if (
-            (options.force || timeDiff > 3) &&
-            hostState.currentTime !== undefined
-        ) {
+        // Sync time if difference is more than 3 seconds
+        if (timeDiff > 3 && controllerState.currentTime !== undefined) {
             console.log(
-                `GUEST: Syncing time: local=${getCurrentTime()}s, host=${hostState.currentTime}s`,
+                `HOST: Syncing time to controller: ${controllerState.currentTime}s (was ${currentTime}s)`,
             );
-            videoElement.currentTime = hostState.currentTime;
+            videoElement.currentTime = controllerState.currentTime;
         }
 
         // Sync play/pause state
-        if (hostState.isBuffering) {
-            // Host is buffering - pause guest video
-            if (localIsPlaying) {
+        if (controllerState.isPlaying !== undefined) {
+            if (controllerState.isPlaying && !localIsPlaying) {
+                console.log("HOST: Controller playing - resuming video");
+                setPlayState(true);
+            } else if (!controllerState.isPlaying && localIsPlaying) {
+                console.log("HOST: Controller paused - pausing video");
                 setPlayState(false);
             }
-            showHostStatus("Controller is buffering...");
-            showHostBufferingIcon();
-        } else if (hostState.isPlaying && !localIsPlaying) {
-            // Host is playing - resume guest video
-            setPlayState(true);
-            hideHostStatus();
-            hideHostBufferingIcon();
-        } else if (!hostState.isPlaying && localIsPlaying) {
-            // Host is paused - pause guest video
-            setPlayState(false);
-            hideHostStatus();
-            hideHostBufferingIcon();
         }
-
-        lastKnownHostState = hostState;
     }
 
-    // Show host status message
-    function showHostStatus(message) {
-        hideHostStatus(); // Remove existing message
+    // Send host state to Firebase
+    async function sendHostState() {
+        if (!watchTogetherEnabled || !roomRef) return;
+
+        try {
+            const { update } =
+                await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
+
+            // Only send video control updates if we have the control token
+            if (currentControllerId !== USER_ID) {
+                console.log(
+                    "HOST: Not sending state - control delegated to:",
+                    currentControllerId,
+                );
+                return;
+            }
+
+            const currentTime = getCurrentTime();
+            const isPlaying = getPlayState();
+            const isCurrentlyBuffering = isVideoBuffering();
+
+            const hostState = {
+                userId: USER_ID,
+                displayName: DISPLAY_NAME,
+                currentTime: currentTime,
+                isPlaying: isPlaying,
+                isBuffering: isCurrentlyBuffering,
+                duration: getVideoDuration(),
+                lastUpdated: Date.now(),
+            };
+
+            // Get current video URL
+            const videoURL = getCurrentVideoURL();
+
+            // Update only the host data and video URL
+            await update(roomRef, {
+                host: hostState,
+                videoURL: videoURL,
+                status: "active",
+            });
+
+            lastSentTime = currentTime;
+        } catch (error) {
+            console.error("HOST ERROR: Failed to send state:", error);
+        }
+    }
+
+    async function forceSyncGuests() {
+        if (!watchTogetherEnabled || !roomRef) {
+            console.log(
+                "HOST WARNING: Enable Watch Together before forcing sync",
+            );
+            return;
+        }
+
+        try {
+            const { update } =
+                await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
+            const currentTime = getCurrentTime();
+            const syncId = `${USER_ID}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+            const forceSyncState = {
+                syncId,
+                issuedAt: Date.now(),
+                issuedBy: USER_ID,
+                currentTime,
+                isPlaying: getPlayState(),
+                isBuffering: isVideoBuffering(),
+                duration: getVideoDuration(),
+            };
+
+            await update(roomRef, {
+                host: {
+                    userId: USER_ID,
+                    displayName: DISPLAY_NAME,
+                    currentTime,
+                    isPlaying: forceSyncState.isPlaying,
+                    isBuffering: forceSyncState.isBuffering,
+                    duration: forceSyncState.duration,
+                    lastUpdated: Date.now(),
+                },
+                forceSync: forceSyncState,
+                status: "active",
+            });
+
+            lastForceSyncId = syncId;
+            updateControlPanel();
+            console.log("HOST: Force sync issued:", forceSyncState);
+        } catch (error) {
+            console.error("HOST ERROR: Failed to force sync guests:", error);
+        }
+    }
+
+    // Listen for guest status updates
+    async function startGuestListener() {
+        try {
+            const { onValue } =
+                await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
+
+            onValue(roomRef, (snapshot) => {
+                const data = snapshot.val();
+
+                // Handle guests
+                if (data && data.guests) {
+                    const guestCount = Object.keys(data.guests).length;
+                    console.log(`HOST: ${guestCount} guest(s) connected`);
+
+                    // Update guest states
+                    guestStates = data.guests;
+
+                    // Check for guest buffering
+                    checkGuestBuffering();
+
+                    // Show guest status in UI
+                    showGuestStatus(guestCount);
+
+                    // Update control panel
+                    updateControlPanel();
+                }
+
+                // Update permissions
+                if (data && data.permissions) {
+                    if (data.permissions.controllerId) {
+                        currentControllerId = data.permissions.controllerId;
+                    }
+                    if (data.permissions.controlRequests) {
+                        controlRequests = data.permissions.controlRequests;
+                    } else {
+                        controlRequests = {};
+                    }
+
+                    // Update control panel
+                    updateControlPanel();
+                }
+
+                // Apply controller state if we don't have control
+                if (currentControllerId !== USER_ID) {
+                    const controllerState = getControllerState(data);
+                    if (controllerState) {
+                        console.log(
+                            "HOST: Detected controller state change, applying:",
+                            controllerState,
+                        );
+                        applyControllerState(controllerState);
+                    }
+                }
+            });
+
+            console.log("HOST: Guest listener started");
+        } catch (error) {
+            console.error("HOST ERROR: Failed to start guest listener:", error);
+        }
+    }
+
+    // Check if any guests are buffering
+    function checkGuestBuffering() {
+        console.log("🔍 HOST: Checking guest buffering states:", guestStates);
+
+        // Filter out guests that are not connected or don't have buffering info
+        const activeGuests = Object.values(guestStates).filter(
+            (guest) => guest && guest.connected !== false,
+        );
+
+        const bufferingGuests = activeGuests.filter(
+            (guest) => guest.isBuffering === true,
+        );
+
+        console.log(
+            "🔍 HOST: Active guests:",
+            activeGuests.length,
+            "Buffering guests:",
+            bufferingGuests.length,
+        );
+
+        const wasAnyBuffering = isAnyGuestBuffering;
+        isAnyGuestBuffering = bufferingGuests.length > 0;
+
+        console.log(
+            "🔍 HOST: wasAnyBuffering:",
+            wasAnyBuffering,
+            "isAnyGuestBuffering:",
+            isAnyGuestBuffering,
+        );
+
+        if (isAnyGuestBuffering && !wasAnyBuffering) {
+            // At least one guest started buffering - pause host video
+            console.log("HOST: Guest(s) buffering - pausing video");
+            if (getPlayState() && playPauseButton) {
+                playPauseButton.click();
+            }
+            showGuestBufferingStatus(bufferingGuests.length);
+            showGuestBufferingIcon(bufferingGuests.length);
+        } else if (!isAnyGuestBuffering && wasAnyBuffering) {
+            // No guests are buffering anymore
+            console.log("HOST: All guests finished buffering - hiding icon");
+            hideGuestBufferingStatus();
+            hideGuestBufferingIcon();
+        } else if (!isAnyGuestBuffering && !wasAnyBuffering) {
+            // Make sure icon is hidden when no guests are buffering
+            hideGuestBufferingStatus();
+            hideGuestBufferingIcon();
+        }
+    }
+
+    // Show guest buffering status
+    function showGuestBufferingStatus(bufferingCount) {
+        hideGuestBufferingStatus(); // Remove existing message
 
         // Find control bar dynamically
         const currentControlBar = document.querySelector(
@@ -1709,21 +1783,20 @@
         if (!currentControlBar) return;
 
         const statusDiv = document.createElement("div");
-        statusDiv.className = "host-status-message";
+        statusDiv.className = "guest-buffering-status";
         statusDiv.style.cssText = `
             position: absolute;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.8);
+            top: -60px;
+            right: 10px;
+            background: rgba(255, 107, 53, 0.9);
             color: white;
-            padding: 8px 16px;
+            padding: 8px 12px;
             border-radius: 4px;
-            font-size: 14px;
+            font-size: 12px;
             z-index: 1000;
-            pointer-events: none;
+            border: 2px solid #FF6B35;
         `;
-        statusDiv.textContent = message;
+        statusDiv.textContent = `${bufferingCount} guest(s) buffering - video paused`;
 
         const controlBarContainer = currentControlBar.closest(".control-bar");
         if (controlBarContainer) {
@@ -1732,16 +1805,16 @@
         }
     }
 
-    // Show host buffering loading icon
-    function showHostBufferingIcon() {
-        hideHostBufferingIcon(); // Remove existing icon
+    // Show guest buffering loading icon
+    function showGuestBufferingIcon(bufferingCount) {
+        hideGuestBufferingIcon(); // Remove existing icon
 
         const loadingIcon = document.createElement("div");
-        loadingIcon.className = "host-buffering-icon";
+        loadingIcon.className = "guest-buffering-icon";
         loadingIcon.style.cssText = `
             position: fixed;
             top: 20px;
-            right: 20px;
+            left: 20px;
             width: 30px;
             height: 30px;
             z-index: 10000;
@@ -1757,8 +1830,8 @@
             <div style="
                 width: 20px;
                 height: 20px;
-                border: 2px solid rgba(255, 107, 53, 0.3);
-                border-top: 2px solid #FF6B35;
+                border: 2px solid rgba(76, 175, 80, 0.3);
+                border-top: 2px solid #4CAF50;
                 border-radius: 50%;
                 animation: spin 1s linear infinite;
             "></div>
@@ -1772,27 +1845,29 @@
 
         // Add to body for better visibility
         document.body.appendChild(loadingIcon);
-        console.log("GUEST: Host buffering icon displayed");
+        console.log("HOST: Guest buffering icon displayed");
     }
 
-    // Hide host buffering loading icon
-    function hideHostBufferingIcon() {
-        const existingIcon = document.querySelector(".host-buffering-icon");
+    // Hide guest buffering loading icon
+    function hideGuestBufferingIcon() {
+        const existingIcon = document.querySelector(".guest-buffering-icon");
         if (existingIcon) {
             existingIcon.remove();
         }
     }
 
-    // Hide host status message
-    function hideHostStatus() {
-        const existingMessage = document.querySelector(".host-status-message");
+    // Hide guest buffering status
+    function hideGuestBufferingStatus() {
+        const existingMessage = document.querySelector(
+            ".guest-buffering-status",
+        );
         if (existingMessage) {
             existingMessage.remove();
         }
     }
 
     // Show notification message
-    function showNotification(message, color = "#4CAF50") {
+    function showNotification(message, color = "#FF6B35") {
         // Remove existing notification
         const existingNotification = document.querySelector(
             ".control-notification",
@@ -1844,8 +1919,8 @@
         }, 3000);
     }
 
-    // Request control from host
-    async function requestControl() {
+    // Delegate control to a guest
+    async function delegateControl(guestUserId, guestName) {
         if (!roomRef) return;
 
         try {
@@ -1853,213 +1928,401 @@
                 await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
 
             await update(roomRef, {
-                [`permissions/controlRequests/${USER_ID}`]: {
-                    userId: USER_ID,
-                    displayName: DISPLAY_NAME,
-                    requestedAt: Date.now(),
-                },
+                "permissions/controllerId": guestUserId,
             });
 
-            showNotification(
-                "Control requested - waiting for host approval",
-                "#ff9800",
+            currentControllerId = guestUserId;
+            showNotification(`Control delegated to ${guestName}`, "#4CAF50");
+            updateControlPanel();
+
+            console.log("HOST: Control delegated to", guestUserId);
+        } catch (error) {
+            console.error("HOST ERROR: Failed to delegate control:", error);
+            showNotification("Failed to delegate control", "#f44336");
+        }
+    }
+
+    // Take back control
+    async function takeBackControl() {
+        if (!roomRef) return;
+
+        try {
+            const { update } =
+                await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
+
+            await update(roomRef, {
+                "permissions/controllerId": USER_ID,
+                "permissions/controlRequests": null,
+            });
+
+            currentControllerId = USER_ID;
+            controlRequests = {};
+            showNotification("You now have control", "#FF6B35");
+            updateControlPanel();
+
+            console.log("HOST: Took back control");
+        } catch (error) {
+            console.error("HOST ERROR: Failed to take back control:", error);
+            showNotification("Failed to take back control", "#f44336");
+        }
+    }
+
+    // Approve control request from guest
+    async function approveControlRequest(guestUserId, guestName) {
+        if (!roomRef) return;
+
+        try {
+            const { update } =
+                await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
+
+            await update(roomRef, {
+                "permissions/controllerId": guestUserId,
+                [`permissions/controlRequests/${guestUserId}`]: null,
+            });
+
+            currentControllerId = guestUserId;
+            delete controlRequests[guestUserId];
+            showNotification(`Control granted to ${guestName}`, "#4CAF50");
+            updateControlPanel();
+
+            console.log("HOST: Approved control request from", guestUserId);
+        } catch (error) {
+            console.error(
+                "HOST ERROR: Failed to approve control request:",
+                error,
             );
-            console.log("GUEST: Control requested from host");
-
-            // Update button state
-            updateRequestControlButton();
-        } catch (error) {
-            console.error("GUEST ERROR: Failed to request control:", error);
-            showNotification("Failed to request control", "#f44336");
+            showNotification("Failed to approve request", "#f44336");
         }
     }
 
-    // Listen for host state changes
-    async function startHostListener() {
+    // Deny control request from guest
+    async function denyControlRequest(guestUserId) {
+        if (!roomRef) return;
+
         try {
-            const { onValue } =
+            const { update } =
                 await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
 
-            onValue(roomRef, (snapshot) => {
-                const data = snapshot.val();
+            await update(roomRef, {
+                [`permissions/controlRequests/${guestUserId}`]: null,
+            });
 
-                if (
-                    data &&
-                    data.forceSync &&
-                    data.forceSync.syncId &&
-                    data.forceSync.syncId !== lastAppliedForceSyncId
-                ) {
-                    lastAppliedForceSyncId = data.forceSync.syncId;
-                    console.log("GUEST: Applying force sync:", data.forceSync);
-                    applyHostState(data.forceSync, { force: true });
-                }
+            delete controlRequests[guestUserId];
+            updateControlPanel();
 
-                // Update permissions
-                if (data && data.permissions) {
-                    const previousControllerId = currentControllerId;
-                    currentControllerId = data.permissions.controllerId;
+            console.log("HOST: Denied control request from", guestUserId);
+        } catch (error) {
+            console.error("HOST ERROR: Failed to deny control request:", error);
+        }
+    }
 
-                    // Notify if control changed
-                    if (
-                        previousControllerId !== currentControllerId &&
-                        previousControllerId !== null
-                    ) {
-                        if (currentControllerId === USER_ID) {
-                            showNotification(
-                                "You now have control!",
-                                "#4CAF50",
-                            );
-                        } else {
-                            showNotification(
-                                "Control returned to host",
-                                "#FF6B35",
-                            );
+    // Create control panel UI
+    function createControlPanel() {
+        if (controlPanel) {
+            controlPanel.remove();
+        }
+
+        controlPanel = document.createElement("div");
+        controlPanel.className = "host-control-panel";
+        controlPanel.style.cssText = `
+            position: fixed;
+            top: 150px;
+            right: 20px;
+            width: 320px;
+            max-height: 500px;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            border: 2px solid #FF6B35;
+            border-radius: 12px;
+            padding: 0;
+            z-index: 9999;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            display: none;
+        `;
+
+        updateControlPanel();
+
+        document.body.appendChild(controlPanel);
+        console.log("HOST: Control panel created");
+    }
+
+    // Update control panel content
+    function updateControlPanel() {
+        if (!controlPanel) return;
+
+        const guestCount = Object.keys(guestStates).length;
+        const requestCount = Object.keys(controlRequests).length;
+        const hostTime = getCurrentTime();
+        const lastSyncLabel = lastForceSyncId
+            ? `Last force sync: ${formatTimestamp(hostTime)}`
+            : "No force sync sent yet";
+
+        let controllerName = "You";
+        if (currentControllerId !== USER_ID) {
+            const controller = guestStates[currentControllerId];
+            controllerName = controller ? controller.displayName : "Unknown";
+        }
+
+        let guestHTML = "";
+        for (const [guestId, guest] of Object.entries(guestStates)) {
+            if (!guest) continue;
+
+            const isController = currentControllerId === guestId;
+            const hasRequest = controlRequests[guestId];
+            const guestTime = Number.isFinite(guest.currentTime)
+                ? guest.currentTime
+                : 0;
+            const driftInfo = getDriftInfo(guestTime);
+            const lastSeen = guest.lastSeen || guest.lastUpdated || 0;
+            const secondsSinceSeen = lastSeen
+                ? Math.max(0, Math.round((Date.now() - lastSeen) / 1000))
+                : null;
+            const statusLabel = guest.isBuffering
+                ? "buffering"
+                : guest.isPlaying
+                  ? "playing"
+                  : "paused";
+
+            guestHTML += `
+                <div style="padding: 12px; border-bottom: 1px solid #333; display: flex; align-items: center; justify-content: space-between;">
+                    <div style="flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0;">
+                        ${isController ? '<span style="font-size: 16px;">👑</span>' : ""}
+                        <span style="font-weight: ${isController ? "600" : "400"}; color: ${isController ? "#4CAF50" : "#e0e0e0"};">
+                            ${guest.displayName || guestId}
+                        </span>
+                        <span style="font-size: 11px; color: ${driftInfo.color}; font-weight: 700;">
+                            ${driftInfo.label}
+                        </span>
+                        <span style="font-size: 11px; color: #aaa;">
+                            ${formatTimestamp(guestTime)} vs ${formatTimestamp(hostTime)} - ${statusLabel}${secondsSinceSeen === null ? "" : `, ${secondsSinceSeen}s ago`}
+                        </span>
+                    </div>
+                    <div>
+                        ${
+                            !isController && !hasRequest
+                                ? `
+                            <button onclick="window.delegateControlToGuest('${guestId}', '${guest.displayName}')" 
+                                    style="padding: 6px 12px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;">
+                                Give Control
+                            </button>
+                        `
+                                : ""
                         }
-                    }
+                        ${
+                            isController && currentControllerId !== USER_ID
+                                ? `
+                            <span style="color: #4CAF50; font-size: 11px; font-weight: 600;">CONTROLLING</span>
+                        `
+                                : ""
+                        }
+                    </div>
+                </div>
+            `;
+        }
 
-                    // Update UI
-                    updateRequestControlButton();
+        let requestsHTML = "";
+        for (const [requesterId, request] of Object.entries(controlRequests)) {
+            if (!request) continue;
+
+            requestsHTML += `
+                <div style="padding: 12px; border-bottom: 1px solid #333; display: flex; align-items: center; justify-content: space-between; background: rgba(255, 152, 0, 0.1);">
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; color: #ff9800; font-size: 13px;">${request.displayName || requesterId}</div>
+                        <div style="font-size: 11px; color: #aaa;">Requesting control</div>
+                    </div>
+                    <div style="display: flex; gap: 6px;">
+                        <button onclick="window.approveControlRequestHandler('${requesterId}', '${request.displayName}')" 
+                                style="padding: 6px 12px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600;">
+                            ✓
+                        </button>
+                        <button onclick="window.denyControlRequestHandler('${requesterId}')" 
+                                style="padding: 6px 12px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600;">
+                            ✗
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        controlPanel.innerHTML = `
+            <div style="background: linear-gradient(135deg, #FF6B35 0%, #ff8c42 100%); padding: 15px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="font-weight: 600; font-size: 16px;">Control Panel</div>
+                    <div style="font-size: 12px; opacity: 0.9;">${guestCount} guest(s) connected</div>
+                </div>
+                <button onclick="window.toggleControlPanel()" style="background: transparent; border: none; color: white; font-size: 20px; cursor: pointer; padding: 0; width: 24px; height: 24px;">×</button>
+            </div>
+
+            <div style="padding: 15px; border-bottom: 2px solid #333;">
+                <div style="font-size: 13px; color: #aaa; margin-bottom: 8px;">Current Controller:</div>
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                    <span style="font-size: 20px;">👑</span>
+                    <span style="font-weight: 600; font-size: 15px; color: #4CAF50;">${controllerName}</span>
+                </div>
+                <div style="font-size: 12px; color: #ccc; margin-bottom: 10px;">
+                    <div>Host time: ${formatTimestamp(hostTime)}</div>
+                    <div>${lastSyncLabel}</div>
+                </div>
+                <button onclick="window.forceSyncGuestsHandler()" style="width: 100%; padding: 10px; background: #2196F3; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; margin-bottom: 8px;">
+                    Force Sync Guests
+                </button>
+                ${
+                    currentControllerId !== USER_ID
+                        ? `
+                    <button onclick="window.takeBackControlHandler()" style="width: 100%; padding: 10px; background: #FF6B35; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px;">
+                        Take Back Control
+                    </button>
+                `
+                        : ""
                 }
+            </div>
 
-                if (data && data.host && data.status === "active") {
-                    console.log("GUEST: Received room state update");
+            ${
+                requestCount > 0
+                    ? `
+                <div style="background: rgba(255, 152, 0, 0.05);">
+                    <div style="padding: 12px 15px; font-weight: 600; font-size: 13px; color: #ff9800; border-bottom: 1px solid #333;">
+                        Control Requests (${requestCount})
+                    </div>
+                    <div style="max-height: 150px; overflow-y: auto;">
+                        ${requestsHTML}
+                    </div>
+                </div>
+            `
+                    : ""
+            }
 
-                    // Check if we need to redirect to host's video
-                    if (
-                        isWatchTogetherPage() &&
-                        data.videoURL &&
-                        isValidStremioVideoURL(data.videoURL)
-                    ) {
-                        redirectToHostVideo(data.videoURL);
-                        return;
-                    }
+            ${
+                guestCount > 0
+                    ? `
+                <div>
+                    <div style="padding: 12px 15px; font-weight: 600; font-size: 13px; color: #e0e0e0; border-bottom: 1px solid #333;">
+                        Connected Guests
+                    </div>
+                    <div style="max-height: 200px; overflow-y: auto;">
+                        ${guestHTML || '<div style="padding: 15px; text-align: center; color: #aaa; font-size: 13px;">No guests connected</div>'}
+                    </div>
+                </div>
+            `
+                    : `
+                <div style="padding: 20px; text-align: center; color: #aaa; font-size: 13px;">
+                    No guests connected yet
+                </div>
+            `
+            }
+        `;
 
-                    // Apply state from whoever has the control token
-                    const controllerState = getControllerState(data);
-                    if (controllerState) {
-                        console.log(
-                            "GUEST: Applying state from controller:",
-                            data.permissions.controllerId,
-                        );
-                        applyHostState(controllerState);
-                    } else {
-                        console.log("GUEST: No controller state found");
-                    }
-                } else if (data && data.status === "waiting_for_guests") {
-                    console.log("GUEST: Waiting for host to start...");
-                    showHostStatus("Waiting for host to start...");
-                }
-            });
+        console.log("HOST: Control panel updated");
+    }
 
-            console.log("GUEST: Host listener started");
-        } catch (error) {
-            console.error("GUEST ERROR: Failed to start host listener:", error);
+    // Toggle control panel visibility
+    function toggleControlPanel() {
+        if (!controlPanel) return;
+
+        if (controlPanel.style.display === "none") {
+            controlPanel.style.display = "block";
+        } else {
+            controlPanel.style.display = "none";
         }
     }
 
-    // Send guest state to Firebase
-    async function sendGuestState() {
-        if (!watchTogetherEnabled || !roomRef) return;
-
-        try {
-            const { update } =
-                await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
-
-            const currentTime = getCurrentTime();
-            const isPlaying = getPlayState();
-            const isCurrentlyBuffering = isVideoBuffering();
-
-            // If we have control, send full state including video control
-            // If not, only send status info
-            const guestState = {
-                userId: USER_ID,
-                displayName: DISPLAY_NAME,
-                currentTime: currentTime,
-                isPlaying: isPlaying,
-                isBuffering: isCurrentlyBuffering,
-                duration: getVideoDuration(),
-                lastUpdated: Date.now(),
-                lastSeen: Date.now(),
-                connected: true,
-            };
-
-            // Only send video control commands if we have the control token
-            if (currentControllerId === USER_ID) {
-                guestState.currentTime = currentTime;
-                guestState.isPlaying = isPlaying;
-                console.log("GUEST: Sending control state:", {
-                    currentTime,
-                    isPlaying,
-                    isBuffering: isCurrentlyBuffering,
-                });
-            } else {
-                console.log("GUEST: Sending status only (no control):", {
-                    isBuffering: isCurrentlyBuffering,
-                });
-            }
-
-            await update(roomRef, {
-                ["guests/" + USER_ID]: guestState,
-            });
-
-            lastGuestStateSent = currentTime;
-        } catch (error) {
-            console.error("GUEST ERROR: Failed to send state:", error);
+    // Show control panel
+    function showControlPanel() {
+        if (controlPanel) {
+            controlPanel.style.display = "block";
         }
     }
 
-    // Send heartbeat to host
-    async function sendHeartbeat() {
-        if (!watchTogetherEnabled || !roomRef) return;
-
-        try {
-            const { update } =
-                await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
-
-            await update(roomRef, {
-                ["guests/" + USER_ID]: {
-                    userId: USER_ID,
-                    displayName: DISPLAY_NAME,
-                    connected: true,
-                    lastSeen: Date.now(),
-                },
-            });
-        } catch (error) {
-            console.error("GUEST ERROR: Failed to send heartbeat:", error);
+    // Hide control panel
+    function hideControlPanel() {
+        if (controlPanel) {
+            controlPanel.style.display = "none";
         }
     }
 
-    // Start following host
-    function startFollowingHost() {
-        isFollowingHost = true;
+    // Global handlers for control panel buttons
+    window.delegateControlToGuest = delegateControl;
+    window.takeBackControlHandler = takeBackControl;
+    window.approveControlRequestHandler = approveControlRequest;
+    window.denyControlRequestHandler = denyControlRequest;
+    window.toggleControlPanel = toggleControlPanel;
+    window.forceSyncGuestsHandler = forceSyncGuests;
 
-        // Send state updates every 2 seconds
-        const stateInterval = setInterval(() => {
-            if (isFollowingHost) {
-                sendGuestState();
-            } else {
-                clearInterval(stateInterval);
+    // Show guest status in control bar
+    function showGuestStatus(guestCount) {
+        // Remove existing status
+        const existingStatus = document.querySelector(".guest-status-display");
+        if (existingStatus) {
+            existingStatus.remove();
+        }
+
+        if (guestCount > 0) {
+            // Find control bar dynamically
+            const currentControlBar = document.querySelector(
+                ".control-bar-buttons-container-SWhkU",
+            );
+            if (!currentControlBar) return;
+
+            const status = document.createElement("div");
+            status.className = "guest-status-display";
+            status.style.cssText = `
+                position: absolute;
+                top: -30px;
+                right: 10px;
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 12px;
+                z-index: 1000;
+            `;
+            status.textContent = `${guestCount} guest(s) connected`;
+
+            const controlBarContainer =
+                currentControlBar.closest(".control-bar");
+            if (controlBarContainer) {
+                controlBarContainer.style.position = "relative";
+                controlBarContainer.appendChild(status);
             }
-        }, 2000);
-
-        // Send heartbeat every 10 seconds
-        const heartbeatInterval = setInterval(() => {
-            if (isFollowingHost) {
-                sendHeartbeat();
-            } else {
-                clearInterval(heartbeatInterval);
-            }
-        }, 10000);
-
-        // Set up buffering observer
-        setupBufferingObserver();
-
-        console.log("GUEST: Started following host");
+        }
     }
 
-    // Set up buffering observer
-    function setupBufferingObserver() {
-        if (videoElement && videoStateListeners.length === 0) {
+    // Start sync
+    function startSync() {
+        syncInterval = setInterval(() => {
+            if (watchTogetherEnabled) {
+                sendHostState();
+                updateControlPanel();
+            }
+        }, 2000); // Send updates every 2 seconds
+
+        sendHostState();
+        console.log("HOST: Sync started");
+    }
+
+    // Stop sync
+    function stopSync() {
+        if (syncInterval) {
+            clearInterval(syncInterval);
+            syncInterval = null;
+        }
+
+        const existingStatus = document.querySelector(".guest-status-display");
+        if (existingStatus) {
+            existingStatus.remove();
+        }
+
+        hideGuestBufferingStatus();
+        hideGuestBufferingIcon();
+
+        console.log("HOST: Sync stopped");
+    }
+
+    // Set up observers
+    function setupObservers() {
+        if (videoElement) {
             videoStateListeners = [
                 "play",
                 "pause",
@@ -2070,7 +2333,7 @@
             ].map((eventName) => {
                 const listener = () => {
                     if (watchTogetherEnabled) {
-                        sendGuestState();
+                        sendHostState();
                     }
                 };
                 videoElement.addEventListener(eventName, listener);
@@ -2078,21 +2341,29 @@
             });
         }
 
+        // Observe play/pause button changes
+        if (playPauseButton) {
+            playPauseObserver = new MutationObserver(() => {
+                if (watchTogetherEnabled) {
+                    sendHostState();
+                }
+            });
+
+            playPauseObserver.observe(playPauseButton, {
+                attributes: true,
+                attributeFilter: ["title"],
+            });
+        }
+
+        // Observe buffering state changes
         const bufferingLayer = document.querySelector(".buffering-layer-ZZCYp");
         if (bufferingLayer) {
             bufferingObserver = new MutationObserver(() => {
                 const currentlyBuffering = isVideoBuffering();
-                if (currentlyBuffering !== isGuestBuffering) {
-                    isGuestBuffering = currentlyBuffering;
+                if (currentlyBuffering !== isBuffering) {
+                    isBuffering = currentlyBuffering;
                     if (watchTogetherEnabled) {
-                        sendGuestState();
-                        if (currentlyBuffering) {
-                            console.log(
-                                "GUEST: Buffering detected - notifying host",
-                            );
-                        } else {
-                            console.log("GUEST: Buffering ended");
-                        }
+                        sendHostState();
                     }
                 }
             });
@@ -2103,74 +2374,39 @@
                 subtree: true,
             });
         }
-    }
 
-    // Stop following host
-    function stopFollowingHost() {
-        isFollowingHost = false;
-        hideHostStatus();
-        hideHostBufferingIcon();
-
-        if (bufferingObserver) {
-            bufferingObserver.disconnect();
-            bufferingObserver = null;
-        }
-        if (videoElement) {
-            for (const { eventName, listener } of videoStateListeners) {
-                videoElement.removeEventListener(eventName, listener);
-            }
-        }
-        videoStateListeners = [];
-
-        console.log("GUEST: Stopped following host");
+        console.log("HOST: Observers set up");
     }
 
     // Cleanup function
     function cleanup() {
-        if (watchTogetherButton) watchTogetherButton.remove();
-        if (requestControlButton) requestControlButton.remove();
-        if (settingsButton) settingsButton.remove();
-        hideSettingsPopup();
-        hideHostStatus();
-        hideHostBufferingIcon();
-
-        if (bufferingObserver) {
-            bufferingObserver.disconnect();
-            bufferingObserver = null;
-        }
+        if (syncInterval) clearInterval(syncInterval);
+        if (playPauseObserver) playPauseObserver.disconnect();
+        if (bufferingObserver) bufferingObserver.disconnect();
         if (videoElement) {
             for (const { eventName, listener } of videoStateListeners) {
                 videoElement.removeEventListener(eventName, listener);
             }
         }
         videoStateListeners = [];
+        if (watchTogetherButton) watchTogetherButton.remove();
+        if (settingsButton) settingsButton.remove();
+        if (controlPanel) controlPanel.remove();
+        hideSettingsPopup();
 
-        // Unregister from room
-        if (roomRef) {
-            import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js").then(
-                ({ update }) => {
-                    update(roomRef, {
-                        ["guests/" + USER_ID]: null,
-                    }).catch(() => {
-                        // Ignore cleanup errors
-                    });
-                },
-            );
-        }
+        const existingStatus = document.querySelector(".guest-status-display");
+        if (existingStatus) existingStatus.remove();
+
+        const controlPanelButton = document.querySelector(
+            ".control-panel-toggle-button",
+        );
+        if (controlPanelButton) controlPanelButton.remove();
+
+        hideGuestBufferingStatus();
+        hideGuestBufferingIcon();
 
         isScriptActive = false;
-        console.log("GUEST: Cleanup complete");
-    }
-
-    // Get room ID from URL parameters
-    function getRoomIdFromURL() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const roomFromURL = urlParams.get("room");
-        if (roomFromURL) {
-            console.log("GUEST: Room ID from URL:", roomFromURL);
-            return roomFromURL;
-        }
-        return null;
+        console.log("HOST: Cleanup complete");
     }
 
     // Main initialization
@@ -2181,38 +2417,24 @@
         // Initialize display name (generate if needed, or load saved)
         initializeDisplayName();
 
-        // Check if room ID is provided in URL
-        const roomFromURL = getRoomIdFromURL();
-        if (roomFromURL) {
-            ROOM_ID = roomFromURL;
-            console.log("GUEST: Using room ID from URL:", ROOM_ID);
-        }
-
-        console.log(`GUEST User ID: ${USER_ID}`);
+        console.log(`HOST User ID: ${USER_ID}`);
         console.log(`Room ID: ${ROOM_ID}`);
+        console.log("Share this Room ID with your guest: " + ROOM_ID);
 
         const firebaseReady = await initializeFirebase();
         if (!firebaseReady) {
             console.log(
-                "GUEST WARNING: Firebase not configured - user needs to set up Firebase first",
+                "HOST WARNING: Firebase not configured - user needs to set up Firebase first",
             );
             // Don't return here, let the user configure Firebase through the settings
             // The buttons will be created but Firebase won't be initialized until configured
-        }
-
-        // If on watch together redirect page, show redirect page and start listening for host
-        if (isWatchTogetherPage()) {
-            console.log("GUEST: On redirect page - showing redirect interface");
-            showWatchTogetherRedirectPage();
-            startHostListener();
-            return;
         }
 
         // Wait for DOM elements with longer timeout
         const maxAttempts = 60; // Increased from 30 to 60
         let attempts = 0;
 
-        console.log("GUEST: Waiting for DOM elements to load...");
+        console.log("HOST: Waiting for DOM elements to load...");
 
         while (!findDOMElements() && attempts < maxAttempts) {
             await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -2220,13 +2442,13 @@
 
             if (attempts % 10 === 0) {
                 console.log(
-                    `GUEST: Still waiting for DOM elements... (${attempts}/${maxAttempts})`,
+                    `HOST: Still waiting for DOM elements... (${attempts}/${maxAttempts})`,
                 );
             }
         }
 
         // Wait for movie to load (timer shows actual time instead of --:--:--)
-        console.log("GUEST: Waiting for movie to load...");
+        console.log("HOST: Waiting for movie to load...");
         let movieLoadAttempts = 0;
         const maxMovieLoadAttempts = 30; // 30 seconds to wait for movie load
 
@@ -2236,24 +2458,22 @@
 
             if (movieLoadAttempts % 5 === 0) {
                 console.log(
-                    `GUEST: Waiting for movie to load... (${movieLoadAttempts}/${maxMovieLoadAttempts})`,
+                    `HOST: Waiting for movie to load... (${movieLoadAttempts}/${maxMovieLoadAttempts})`,
                 );
             }
         }
 
         if (movieLoadAttempts >= maxMovieLoadAttempts) {
-            console.log(
-                "GUEST WARNING: Movie load timeout - proceeding anyway",
-            );
+            console.log("HOST WARNING: Movie load timeout - proceeding anyway");
         } else {
-            console.log("GUEST: Movie loaded successfully");
+            console.log("HOST: Movie loaded successfully");
         }
 
         if (attempts >= maxAttempts) {
             console.error(
-                "GUEST ERROR: Could not find required DOM elements after 60 seconds",
+                "HOST ERROR: Could not find required DOM elements after 60 seconds",
             );
-            console.error("GUEST ERROR: This might be because:");
+            console.error("HOST ERROR: This might be because:");
             console.error("   1. The video is still loading");
             console.error("   2. Stremio UI has changed");
             console.error("   3. The page structure is different");
@@ -2261,7 +2481,7 @@
             // Try to continue anyway with partial elements
             if (videoElement || controlBar || playPauseButton) {
                 console.log(
-                    "GUEST WARNING: Attempting to continue with partial elements...",
+                    "HOST WARNING: Attempting to continue with partial elements...",
                 );
             } else {
                 return;
@@ -2269,20 +2489,66 @@
         }
 
         createWatchTogetherButton();
-        createRequestControlButton();
+        createControlPanelButton();
         createSettingsButton();
-        startHostListener();
+        createControlPanel();
+        setupObservers();
+        startGuestListener();
 
-        console.log("GUEST: Watch Together Script loaded successfully!");
-        console.log("Click the green chat icon to start following the host");
+        console.log("HOST: Watch Together Script loaded successfully!");
+        console.log("Click the orange chat icon to start controlling playback");
+        console.log("Share Room ID with guest:", ROOM_ID);
+        console.log("Test functions available:");
         console.log(
-            "Make sure you're using the same Room ID as the host:",
-            ROOM_ID,
+            "   - testGuestBufferingIcon() - Test the guest buffering icon display",
         );
     }
 
     // Handle page unload
     window.addEventListener("beforeunload", cleanup);
+
+    // Test function for guest buffering icon
+    window.testGuestBufferingIcon = function () {
+        console.log("HOST: Testing guest buffering icon...");
+        showGuestBufferingIcon(1);
+        setTimeout(() => {
+            console.log("HOST: Hiding guest buffering icon after 5 seconds...");
+            hideGuestBufferingIcon();
+        }, 5000);
+    };
+
+    // Test function to simulate guest buffering state
+    window.testGuestBufferingState = function () {
+        console.log("HOST: Simulating guest buffering state...");
+
+        // Find the first guest and simulate them buffering
+        const guestIds = Object.keys(guestStates);
+        if (guestIds.length > 0) {
+            const firstGuestId = guestIds[0];
+            console.log("HOST: Simulating buffering for guest:", firstGuestId);
+
+            // Simulate the guest buffering
+            guestStates[firstGuestId] = {
+                ...guestStates[firstGuestId],
+                isBuffering: true,
+            };
+
+            // Trigger the check
+            checkGuestBuffering();
+
+            // Reset after 5 seconds
+            setTimeout(() => {
+                console.log("HOST: Resetting guest buffering state...");
+                guestStates[firstGuestId] = {
+                    ...guestStates[firstGuestId],
+                    isBuffering: false,
+                };
+                checkGuestBuffering();
+            }, 5000);
+        } else {
+            console.log("HOST ERROR: No guests found to simulate buffering");
+        }
+    };
 
     // Wait for page to be fully loaded before initializing
     function waitForPageLoad() {
@@ -2297,15 +2563,15 @@
 
     // Start initialization
     async function startInitialization() {
-        console.log("GUEST: Starting initialization...");
+        console.log("HOST: Starting initialization...");
 
         // Wait for page load
         await waitForPageLoad();
-        console.log("GUEST: Page loaded");
+        console.log("HOST: Page loaded");
 
         // Wait a bit more for Stremio to initialize
         await new Promise((resolve) => setTimeout(resolve, 3000));
-        console.log("GUEST: Waiting period complete");
+        console.log("HOST: Waiting period complete");
 
         // Start the main initialization
         await initialize();
@@ -2314,7 +2580,7 @@
     // Start initialization
     // Start initialization
     // startInitialization().catch(error => {
-    //     console.error('GUEST ERROR: Initialization failed:', error);
+    //     console.error('HOST ERROR: Initialization failed:', error);
     // });
 
     // URL Change Detection and Lifecycle Management
@@ -2322,18 +2588,13 @@
 
     async function checkUrlAndManageState() {
         const currentUrl = window.location.href;
-        const onPlayer = isPlayerPage();
-        const onWatchTogether = isWatchTogetherPage();
+        const isPlayerPage = currentUrl.includes("#/player/");
 
-        if (onPlayer || onWatchTogether) {
+        if (isPlayerPage) {
             if (!isScriptActive && !isInitializationRunning) {
                 console.log(
-                    "GUEST: Relevant page detected, initializing Watch Together...",
+                    "HOST: Player page detected, initializing Watch Together...",
                 );
-                if (onWatchTogether) {
-                    console.log("GUEST: On watch together redirect page");
-                }
-
                 isInitializationRunning = true;
 
                 try {
@@ -2341,7 +2602,7 @@
                     await startInitialization(); // This calls initialize() which sets up everything
                     isScriptActive = true;
                 } catch (error) {
-                    console.error("GUEST ERROR: Failed to initialize:", error);
+                    console.error("HOST ERROR: Failed to initialize:", error);
                     // Reset flags so we can retry if needed
                     isScriptActive = false;
                 } finally {
@@ -2350,7 +2611,7 @@
             }
         } else {
             if (isScriptActive) {
-                console.log("GUEST: Left relevant page, cleaning up...");
+                console.log("HOST: Left player page, cleaning up...");
                 cleanup();
                 // isScriptActive is set to false in cleanup(), but ensuring it here too
                 isScriptActive = false;

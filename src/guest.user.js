@@ -42,16 +42,7 @@
     let DISPLAY_NAME = "";
 
     // Default Firebase Configuration
-    const DEFAULT_FIREBASE_CONFIG = {
-        "apiKey": "AIzaSyB3ubj3Ged0aEGnsEyBshst7FqKsWUWEho",
-        "authDomain": "stremio-watch-party-91f58.firebaseapp.com",
-        "projectId": "stremio-watch-party-91f58",
-        "storageBucket": "stremio-watch-party-91f58.firebasestorage.app",
-        "messagingSenderId": "709062799848",
-        "appId": "1:709062799848:web:aa2a2bb6c0b9844ed9745d",
-        "measurementId": "G-TDQXG91CVJ",
-        "databaseURL": "https://stremio-watch-party-91f58-default-rtdb.firebaseio.com/"
-};
+    const DEFAULT_FIREBASE_CONFIG = __DEFAULT_FIREBASE_CONFIG__;
 
     let firebaseConfig = { ...DEFAULT_FIREBASE_CONFIG };
 

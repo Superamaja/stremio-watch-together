@@ -43,15 +43,16 @@
 
     // Default Firebase Configuration
     const DEFAULT_FIREBASE_CONFIG = {
-        "apiKey": "AIzaSyB3ubj3Ged0aEGnsEyBshst7FqKsWUWEho",
-        "authDomain": "stremio-watch-party-91f58.firebaseapp.com",
-        "projectId": "stremio-watch-party-91f58",
-        "storageBucket": "stremio-watch-party-91f58.firebasestorage.app",
-        "messagingSenderId": "709062799848",
-        "appId": "1:709062799848:web:aa2a2bb6c0b9844ed9745d",
-        "measurementId": "G-TDQXG91CVJ",
-        "databaseURL": "https://stremio-watch-party-91f58-default-rtdb.firebaseio.com/"
-};
+        apiKey: "AIzaSyB3ubj3Ged0aEGnsEyBshst7FqKsWUWEho",
+        authDomain: "stremio-watch-party-91f58.firebaseapp.com",
+        projectId: "stremio-watch-party-91f58",
+        storageBucket: "stremio-watch-party-91f58.firebasestorage.app",
+        messagingSenderId: "709062799848",
+        appId: "1:709062799848:web:aa2a2bb6c0b9844ed9745d",
+        measurementId: "G-TDQXG91CVJ",
+        databaseURL:
+            "https://stremio-watch-party-91f58-default-rtdb.firebaseio.com/",
+    };
 
     let firebaseConfig = { ...DEFAULT_FIREBASE_CONFIG };
 
@@ -367,14 +368,12 @@
     let lastKnownHostState = null;
     let isFollowingHost = false;
     let bufferingObserver = null;
-    let videoStateListeners = [];
     let isGuestBuffering = false;
     let lastGuestStateSent = 0;
     let currentControllerId = null;
     let requestControlButton = null;
     let isScriptActive = false;
     let isInitializationRunning = false;
-    let lastAppliedForceSyncId = null;
 
     // Initialize Firebase
     async function initializeFirebase() {
@@ -413,10 +412,6 @@
                 ["guests/" + USER_ID]: {
                     userId: USER_ID,
                     displayName: DISPLAY_NAME,
-                    currentTime: getCurrentTime(),
-                    isPlaying: getPlayState(),
-                    isBuffering: isVideoBuffering(),
-                    duration: getVideoDuration(),
                     connected: true,
                     lastSeen: Date.now(),
                 },
@@ -1401,82 +1396,28 @@
 
     // Get current time from timer
     function getCurrentTime() {
-        if (videoElement && Number.isFinite(videoElement.currentTime)) {
-            return videoElement.currentTime;
-        }
-
         const timerElement = document.querySelector(".label-QFbsS");
         if (!timerElement) return 0;
 
         const timeStr = timerElement.textContent;
         const parts = timeStr.split(":").map(Number);
-        if (parts.some((part) => Number.isNaN(part))) return 0;
-        if (parts.length === 2) return parts[0] * 60 + parts[1];
         return parts[0] * 3600 + parts[1] * 60 + parts[2];
     }
 
     // Get play/pause state
     function getPlayState() {
-        if (videoElement) {
-            return !videoElement.paused;
-        }
-
         if (!playPauseButton) return false;
         return playPauseButton.getAttribute("title") === "Pause";
     }
 
-    function setPlayState(shouldPlay) {
-        if (videoElement) {
-            if (shouldPlay) {
-                const playPromise = videoElement.play();
-                if (playPromise && typeof playPromise.catch === "function") {
-                    playPromise.catch(() => {
-                        if (playPauseButton) playPauseButton.click();
-                    });
-                }
-            } else {
-                videoElement.pause();
-            }
-            return;
-        }
-
-        if (playPauseButton) {
-            playPauseButton.click();
-        }
-    }
-
     // Check if guest video is buffering
     function isVideoBuffering() {
-        if (videoElement) {
-            return (
-                videoElement.readyState < HTMLMediaElement.HAVE_FUTURE_DATA ||
-                videoElement.networkState === HTMLMediaElement.NETWORK_LOADING
-            );
-        }
-
         const bufferingLayer = document.querySelector(".buffering-layer-ZZCYp");
         return (
             bufferingLayer &&
             bufferingLayer.style.display !== "none" &&
             bufferingLayer.offsetParent !== null
         );
-    }
-
-    function getVideoDuration() {
-        return videoElement && Number.isFinite(videoElement.duration)
-            ? videoElement.duration
-            : 0;
-    }
-
-    function formatTimestamp(seconds) {
-        const safeSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
-        const hours = Math.floor(safeSeconds / 3600);
-        const minutes = Math.floor((safeSeconds % 3600) / 60);
-        const secs = safeSeconds % 60;
-        if (hours > 0) {
-            return `${hours}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-        }
-        return `${minutes}:${String(secs).padStart(2, "0")}`;
     }
 
     // Check if movie has loaded (timer shows actual time instead of --:--:--)
@@ -1650,7 +1591,7 @@
     }
 
     // Apply host's state to guest's video
-    function applyHostState(hostState, options = {}) {
+    function applyHostState(hostState) {
         if (!watchTogetherEnabled || !videoElement || !hostState) return;
 
         // If we have control, don't apply host state
@@ -1664,11 +1605,8 @@
         const timeDiff = Math.abs(getCurrentTime() - hostState.currentTime);
         const localIsPlaying = getPlayState();
 
-        // Sync time if forced or if difference is more than 3 seconds
-        if (
-            (options.force || timeDiff > 3) &&
-            hostState.currentTime !== undefined
-        ) {
+        // Sync time if difference is more than 3 seconds
+        if (timeDiff > 3 && hostState.currentTime !== undefined) {
             console.log(
                 `GUEST: Syncing time: local=${getCurrentTime()}s, host=${hostState.currentTime}s`,
             );
@@ -1679,18 +1617,18 @@
         if (hostState.isBuffering) {
             // Host is buffering - pause guest video
             if (localIsPlaying) {
-                setPlayState(false);
+                playPauseButton.click();
             }
             showHostStatus("Controller is buffering...");
             showHostBufferingIcon();
         } else if (hostState.isPlaying && !localIsPlaying) {
             // Host is playing - resume guest video
-            setPlayState(true);
+            playPauseButton.click();
             hideHostStatus();
             hideHostBufferingIcon();
         } else if (!hostState.isPlaying && localIsPlaying) {
             // Host is paused - pause guest video
-            setPlayState(false);
+            playPauseButton.click();
             hideHostStatus();
             hideHostBufferingIcon();
         }
@@ -1883,17 +1821,6 @@
             onValue(roomRef, (snapshot) => {
                 const data = snapshot.val();
 
-                if (
-                    data &&
-                    data.forceSync &&
-                    data.forceSync.syncId &&
-                    data.forceSync.syncId !== lastAppliedForceSyncId
-                ) {
-                    lastAppliedForceSyncId = data.forceSync.syncId;
-                    console.log("GUEST: Applying force sync:", data.forceSync);
-                    applyHostState(data.forceSync, { force: true });
-                }
-
                 // Update permissions
                 if (data && data.permissions) {
                     const previousControllerId = currentControllerId;
@@ -1974,12 +1901,8 @@
             const guestState = {
                 userId: USER_ID,
                 displayName: DISPLAY_NAME,
-                currentTime: currentTime,
-                isPlaying: isPlaying,
                 isBuffering: isCurrentlyBuffering,
-                duration: getVideoDuration(),
                 lastUpdated: Date.now(),
-                lastSeen: Date.now(),
                 connected: true,
             };
 
@@ -2059,25 +1982,6 @@
 
     // Set up buffering observer
     function setupBufferingObserver() {
-        if (videoElement && videoStateListeners.length === 0) {
-            videoStateListeners = [
-                "play",
-                "pause",
-                "seeked",
-                "waiting",
-                "playing",
-                "canplay",
-            ].map((eventName) => {
-                const listener = () => {
-                    if (watchTogetherEnabled) {
-                        sendGuestState();
-                    }
-                };
-                videoElement.addEventListener(eventName, listener);
-                return { eventName, listener };
-            });
-        }
-
         const bufferingLayer = document.querySelector(".buffering-layer-ZZCYp");
         if (bufferingLayer) {
             bufferingObserver = new MutationObserver(() => {
@@ -2115,12 +2019,6 @@
             bufferingObserver.disconnect();
             bufferingObserver = null;
         }
-        if (videoElement) {
-            for (const { eventName, listener } of videoStateListeners) {
-                videoElement.removeEventListener(eventName, listener);
-            }
-        }
-        videoStateListeners = [];
 
         console.log("GUEST: Stopped following host");
     }
@@ -2138,12 +2036,6 @@
             bufferingObserver.disconnect();
             bufferingObserver = null;
         }
-        if (videoElement) {
-            for (const { eventName, listener } of videoStateListeners) {
-                videoElement.removeEventListener(eventName, listener);
-            }
-        }
-        videoStateListeners = [];
 
         // Unregister from room
         if (roomRef) {

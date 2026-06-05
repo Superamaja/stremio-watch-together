@@ -36,16 +36,15 @@
 
     // Default Firebase Configuration
     const DEFAULT_FIREBASE_CONFIG = {
-        apiKey: "AIzaSyB3ubj3Ged0aEGnsEyBshst7FqKsWUWEho",
-        authDomain: "stremio-watch-party-91f58.firebaseapp.com",
-        projectId: "stremio-watch-party-91f58",
-        storageBucket: "stremio-watch-party-91f58.firebasestorage.app",
-        messagingSenderId: "709062799848",
-        appId: "1:709062799848:web:aa2a2bb6c0b9844ed9745d",
-        measurementId: "G-TDQXG91CVJ",
-        databaseURL:
-            "https://stremio-watch-party-91f58-default-rtdb.firebaseio.com/",
-    };
+        "apiKey": "AIzaSyB3ubj3Ged0aEGnsEyBshst7FqKsWUWEho",
+        "authDomain": "stremio-watch-party-91f58.firebaseapp.com",
+        "projectId": "stremio-watch-party-91f58",
+        "storageBucket": "stremio-watch-party-91f58.firebasestorage.app",
+        "messagingSenderId": "709062799848",
+        "appId": "1:709062799848:web:aa2a2bb6c0b9844ed9745d",
+        "measurementId": "G-TDQXG91CVJ",
+        "databaseURL": "https://stremio-watch-party-91f58-default-rtdb.firebaseio.com/"
+};
 
     let firebaseConfig = { ...DEFAULT_FIREBASE_CONFIG };
 
@@ -362,6 +361,7 @@
     let bufferingObserver = null;
     let playPauseObserver = null;
     let syncInterval = null;
+    let videoStateListeners = [];
     let lastSentTime = 0;
     let guestStates = {};
     let isAnyGuestBuffering = false;
@@ -370,6 +370,7 @@
     let controlPanel = null;
     let isScriptActive = false;
     let isInitializationRunning = false;
+    let lastForceSyncId = null;
 
     // Initialize Firebase
     async function initializeFirebase() {
@@ -1399,28 +1400,98 @@
 
     // Get current time from timer
     function getCurrentTime() {
+        if (videoElement && Number.isFinite(videoElement.currentTime)) {
+            return videoElement.currentTime;
+        }
+
         const timerElement = document.querySelector(".label-QFbsS");
         if (!timerElement) return 0;
 
         const timeStr = timerElement.textContent;
         const parts = timeStr.split(":").map(Number);
+        if (parts.some((part) => Number.isNaN(part))) return 0;
+        if (parts.length === 2) return parts[0] * 60 + parts[1];
         return parts[0] * 3600 + parts[1] * 60 + parts[2];
     }
 
     // Get play/pause state
     function getPlayState() {
+        if (videoElement) {
+            return !videoElement.paused;
+        }
+
         if (!playPauseButton) return false;
         return playPauseButton.getAttribute("title") === "Pause";
     }
 
+    function setPlayState(shouldPlay) {
+        if (videoElement) {
+            if (shouldPlay) {
+                const playPromise = videoElement.play();
+                if (playPromise && typeof playPromise.catch === "function") {
+                    playPromise.catch(() => {
+                        if (playPauseButton) playPauseButton.click();
+                    });
+                }
+            } else {
+                videoElement.pause();
+            }
+            return;
+        }
+
+        if (playPauseButton) {
+            playPauseButton.click();
+        }
+    }
+
     // Check if video is buffering
     function isVideoBuffering() {
+        if (videoElement) {
+            return (
+                videoElement.readyState < HTMLMediaElement.HAVE_FUTURE_DATA ||
+                videoElement.networkState === HTMLMediaElement.NETWORK_LOADING
+            );
+        }
+
         const bufferingLayer = document.querySelector(".buffering-layer-ZZCYp");
         return (
             bufferingLayer &&
             bufferingLayer.style.display !== "none" &&
             bufferingLayer.offsetParent !== null
         );
+    }
+
+    function getVideoDuration() {
+        return videoElement && Number.isFinite(videoElement.duration)
+            ? videoElement.duration
+            : 0;
+    }
+
+    function formatTimestamp(seconds) {
+        const safeSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
+        const hours = Math.floor(safeSeconds / 3600);
+        const minutes = Math.floor((safeSeconds % 3600) / 60);
+        const secs = safeSeconds % 60;
+        if (hours > 0) {
+            return `${hours}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+        }
+        return `${minutes}:${String(secs).padStart(2, "0")}`;
+    }
+
+    function getDriftInfo(guestTime) {
+        const drift = (guestTime || 0) - getCurrentTime();
+        const absoluteDrift = Math.abs(drift);
+        const color =
+            absoluteDrift <= 1.5
+                ? "#4CAF50"
+                : absoluteDrift <= 4
+                  ? "#ff9800"
+                  : "#f44336";
+        const label =
+            absoluteDrift <= 0.5
+                ? "in sync"
+                : `${drift > 0 ? "+" : "-"}${absoluteDrift.toFixed(1)}s`;
+        return { drift, absoluteDrift, color, label };
     }
 
     // Check if movie has loaded (timer shows actual time instead of --:--:--)
@@ -1499,10 +1570,10 @@
         if (controllerState.isPlaying !== undefined) {
             if (controllerState.isPlaying && !localIsPlaying) {
                 console.log("HOST: Controller playing - resuming video");
-                playPauseButton.click();
+                setPlayState(true);
             } else if (!controllerState.isPlaying && localIsPlaying) {
                 console.log("HOST: Controller paused - pausing video");
-                playPauseButton.click();
+                setPlayState(false);
             }
         }
     }
@@ -1512,7 +1583,7 @@
         if (!watchTogetherEnabled || !roomRef) return;
 
         try {
-            const { set, update } =
+            const { update } =
                 await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
 
             // Only send video control updates if we have the control token
@@ -1534,6 +1605,7 @@
                 currentTime: currentTime,
                 isPlaying: isPlaying,
                 isBuffering: isCurrentlyBuffering,
+                duration: getVideoDuration(),
                 lastUpdated: Date.now(),
             };
 
@@ -1550,6 +1622,51 @@
             lastSentTime = currentTime;
         } catch (error) {
             console.error("HOST ERROR: Failed to send state:", error);
+        }
+    }
+
+    async function forceSyncGuests() {
+        if (!watchTogetherEnabled || !roomRef) {
+            console.log(
+                "HOST WARNING: Enable Watch Together before forcing sync",
+            );
+            return;
+        }
+
+        try {
+            const { update } =
+                await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
+            const currentTime = getCurrentTime();
+            const syncId = `${USER_ID}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+            const forceSyncState = {
+                syncId,
+                issuedAt: Date.now(),
+                issuedBy: USER_ID,
+                currentTime,
+                isPlaying: getPlayState(),
+                isBuffering: isVideoBuffering(),
+                duration: getVideoDuration(),
+            };
+
+            await update(roomRef, {
+                host: {
+                    userId: USER_ID,
+                    displayName: DISPLAY_NAME,
+                    currentTime,
+                    isPlaying: forceSyncState.isPlaying,
+                    isBuffering: forceSyncState.isBuffering,
+                    duration: forceSyncState.duration,
+                    lastUpdated: Date.now(),
+                },
+                forceSync: forceSyncState,
+                status: "active",
+            });
+
+            lastForceSyncId = syncId;
+            updateControlPanel();
+            console.log("HOST: Force sync issued:", forceSyncState);
+        } catch (error) {
+            console.error("HOST ERROR: Failed to force sync guests:", error);
         }
     }
 
@@ -1946,6 +2063,10 @@
 
         const guestCount = Object.keys(guestStates).length;
         const requestCount = Object.keys(controlRequests).length;
+        const hostTime = getCurrentTime();
+        const lastSyncLabel = lastForceSyncId
+            ? `Last force sync: ${formatTimestamp(hostTime)}`
+            : "No force sync sent yet";
 
         let controllerName = "You";
         if (currentControllerId !== USER_ID) {
@@ -1959,13 +2080,32 @@
 
             const isController = currentControllerId === guestId;
             const hasRequest = controlRequests[guestId];
+            const guestTime = Number.isFinite(guest.currentTime)
+                ? guest.currentTime
+                : 0;
+            const driftInfo = getDriftInfo(guestTime);
+            const lastSeen = guest.lastSeen || guest.lastUpdated || 0;
+            const secondsSinceSeen = lastSeen
+                ? Math.max(0, Math.round((Date.now() - lastSeen) / 1000))
+                : null;
+            const statusLabel = guest.isBuffering
+                ? "buffering"
+                : guest.isPlaying
+                  ? "playing"
+                  : "paused";
 
             guestHTML += `
                 <div style="padding: 12px; border-bottom: 1px solid #333; display: flex; align-items: center; justify-content: space-between;">
-                    <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+                    <div style="flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0;">
                         ${isController ? '<span style="font-size: 16px;">👑</span>' : ""}
                         <span style="font-weight: ${isController ? "600" : "400"}; color: ${isController ? "#4CAF50" : "#e0e0e0"};">
                             ${guest.displayName || guestId}
+                        </span>
+                        <span style="font-size: 11px; color: ${driftInfo.color}; font-weight: 700;">
+                            ${driftInfo.label}
+                        </span>
+                        <span style="font-size: 11px; color: #aaa;">
+                            ${formatTimestamp(guestTime)} vs ${formatTimestamp(hostTime)} - ${statusLabel}${secondsSinceSeen === null ? "" : `, ${secondsSinceSeen}s ago`}
                         </span>
                     </div>
                     <div>
@@ -2030,6 +2170,13 @@
                     <span style="font-size: 20px;">👑</span>
                     <span style="font-weight: 600; font-size: 15px; color: #4CAF50;">${controllerName}</span>
                 </div>
+                <div style="font-size: 12px; color: #ccc; margin-bottom: 10px;">
+                    <div>Host time: ${formatTimestamp(hostTime)}</div>
+                    <div>${lastSyncLabel}</div>
+                </div>
+                <button onclick="window.forceSyncGuestsHandler()" style="width: 100%; padding: 10px; background: #2196F3; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; margin-bottom: 8px;">
+                    Force Sync Guests
+                </button>
                 ${
                     currentControllerId !== USER_ID
                         ? `
@@ -2110,6 +2257,7 @@
     window.approveControlRequestHandler = approveControlRequest;
     window.denyControlRequestHandler = denyControlRequest;
     window.toggleControlPanel = toggleControlPanel;
+    window.forceSyncGuestsHandler = forceSyncGuests;
 
     // Show guest status in control bar
     function showGuestStatus(guestCount) {
@@ -2155,6 +2303,7 @@
         syncInterval = setInterval(() => {
             if (watchTogetherEnabled) {
                 sendHostState();
+                updateControlPanel();
             }
         }, 2000); // Send updates every 2 seconds
 
@@ -2182,6 +2331,25 @@
 
     // Set up observers
     function setupObservers() {
+        if (videoElement) {
+            videoStateListeners = [
+                "play",
+                "pause",
+                "seeked",
+                "waiting",
+                "playing",
+                "canplay",
+            ].map((eventName) => {
+                const listener = () => {
+                    if (watchTogetherEnabled) {
+                        sendHostState();
+                    }
+                };
+                videoElement.addEventListener(eventName, listener);
+                return { eventName, listener };
+            });
+        }
+
         // Observe play/pause button changes
         if (playPauseButton) {
             playPauseObserver = new MutationObserver(() => {
@@ -2224,6 +2392,12 @@
         if (syncInterval) clearInterval(syncInterval);
         if (playPauseObserver) playPauseObserver.disconnect();
         if (bufferingObserver) bufferingObserver.disconnect();
+        if (videoElement) {
+            for (const { eventName, listener } of videoStateListeners) {
+                videoElement.removeEventListener(eventName, listener);
+            }
+        }
+        videoStateListeners = [];
         if (watchTogetherButton) watchTogetherButton.remove();
         if (settingsButton) settingsButton.remove();
         if (controlPanel) controlPanel.remove();

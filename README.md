@@ -1,6 +1,32 @@
 # Stremio Watch Together
 
-A userscript that enables synchronized watching experience on Stremio Web Player. Watch movies and shows together with friends in real-time!
+An improved fork of the original Stremio Watch Together userscripts for synchronized watching on Stremio Web Player.
+
+This fork keeps the original host/guest watch-party idea and adds a more maintainable build workflow, stronger sync controls, and better diagnostics for checking whether guests are actually in sync.
+
+## Original Project Credit
+
+This project is based on the original **Stremio Watch Together** userscripts by **Sagar Chaulagain**.
+
+- Original tutorial: [https://youtu.be/6wSY6W3euu8](https://youtu.be/6wSY6W3euu8)
+- Original script update source: [sagarchaulagai/stremio-watch-together](https://github.com/sagarchaulagai/stremio-watch-together)
+
+The archived original scripts are preserved in `archive/` for reference.
+
+## Development
+
+The archived original scripts live in `archive/`. Edit the revived scripts in `src/`, then run:
+
+```bash
+pnpm run check
+```
+
+That lints the source and rebuilds the installable Tampermonkey files:
+
+- `host.user.js`
+- `guest.user.js`
+
+Firebase defaults are injected at build time from `.env`. Copy `.env.example` to `.env` and fill in your Firebase values. If `.env` is missing or empty, the generated scripts still work with the in-page settings flow, but no default Firebase project is embedded.
 
 ## 📺 YouTube Tutorial
 
@@ -111,20 +137,8 @@ A userscript that enables synchronized watching experience on Stremio Web Player
    - Paste it into the editor
 
 4. **Update Firebase Configuration:**
-   - Find the `DEFAULT_FIREBASE_CONFIG` section (around line 35)
-   - Replace the placeholder values with your actual Firebase config:
-   ```javascript
-   const DEFAULT_FIREBASE_CONFIG = {
-     apiKey: "your-actual-api-key",
-     authDomain: "your-project.firebaseapp.com",
-     projectId: "your-project-id",
-     storageBucket: "your-project.appspot.com",
-     messagingSenderId: "123456789",
-     appId: "your-actual-app-id",
-     measurementId: "your-measurement-id",
-     databaseURL: "https://your-project-default-rtdb.firebaseio.com/"
-   };
-   ```
+   - Recommended: copy `.env.example` to `.env`, fill in your Firebase values, then run `pnpm run build`.
+   - Alternative: leave the generated defaults empty and use the in-page settings prompt after opening Stremio.
 
 5. **Save the Script:**
    - Press `Ctrl+S` (or `Cmd+S` on Mac)
@@ -151,8 +165,7 @@ A userscript that enables synchronized watching experience on Stremio Web Player
    - Paste it into the editor
 
 4. **Update Firebase Configuration:**
-   - Find the `DEFAULT_FIREBASE_CONFIG` section (around line 43)
-   - Replace with the same Firebase config as the host
+   - Use the same generated `.env` defaults or in-page Firebase settings as the host.
 
 5. **Update Room ID (Important!):**
    - Find `ROOM_ID = 'room123'` (around line 39)
@@ -232,18 +245,32 @@ Both scripts include settings panels accessible via the UI:
 - **Script only works on Stremio Web Player** (not desktop app)
 - **All participants must be on the same video** for sync to work
 
+## Improvements in This Fork
+
+- **Force Sync button** - The host control panel can now send an immediate sync event to guests.
+- **Guest drift visibility** - The host can see each guest's timestamp compared with the host timestamp.
+- **Better guest status reporting** - Guests report current time, play state, buffering state, duration, and last-seen time.
+- **More reliable video state detection** - Sync logic now prefers the browser's actual `<video>` element over fragile Stremio UI labels.
+- **Build-time Firebase defaults** - Firebase defaults can be injected from `.env` instead of hardcoding a project in source.
+- **Maintainable source layout** - The revived scripts live in `src/`, while generated Tampermonkey install files remain at the repo root.
+- **Archived original scripts** - The original host and guest scripts are kept in `archive/` for comparison and attribution.
+
+Planned future improvement: add a same-video identity check so host and guests can detect when they are not watching the same Stremio item or stream.
+
 ## 🤝 Contributing
 
 Feel free to submit issues and enhancement requests!
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This fork preserves the original MIT license. See [LICENSE](LICENSE) for details.
 
-## 👨‍💻 Author
+## 👨‍💻 Credits
 
-**Sagar Chaulagain**
+Original author: **Sagar Chaulagain**
+
+Fork improvements: maintained in this repository.
 
 ---
 
-**Need help?** Check out the [YouTube tutorial](https://youtu.be/6wSY6W3euu8) for a complete walkthrough!
+**Need help with the original setup flow?** Check out the [YouTube tutorial](https://youtu.be/6wSY6W3euu8).
