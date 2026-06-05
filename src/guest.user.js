@@ -328,7 +328,7 @@
     // live position between updates.
     const SEEK_LOCK_THRESHOLD = 3; // seconds of deviation tolerated before snapping
     let hostClockTime = null;
-    let hostClockUpdatedAt = 0;
+    let hostClockSampledAt = 0;
     let hostClockPlaying = false;
     let lastProgrammaticSeekAt = 0;
 
@@ -336,6 +336,30 @@
     let monitoredDatabase = null;
     let wasConnected = null;
     let hasLostConnection = false;
+
+    // Shared clock: Firebase's server-time offset gives every device a common
+    // timebase so cross-device timestamps ignore local clock skew. See serverNow().
+    let serverTimeOffset = 0;
+    let serverTimeMonitored = false;
+
+    function serverNow() {
+        return Date.now() + serverTimeOffset;
+    }
+
+    async function monitorServerTimeOffset() {
+        if (serverTimeMonitored || !database) return;
+        serverTimeMonitored = true;
+        try {
+            const { ref, onValue } =
+                await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
+            onValue(ref(database, ".info/serverTimeOffset"), (snapshot) => {
+                const offset = snapshot.val();
+                if (typeof offset === "number") serverTimeOffset = offset;
+            });
+        } catch (error) {
+            console.error("GUEST ERROR: Failed to monitor server time offset:", error);
+        }
+    }
 
     // Initialize Firebase
     async function initializeFirebase() {
@@ -357,9 +381,11 @@
             app = initializeApp(FIREBASE_CONFIG);
             database = getDatabase(app);
             roomRef = ref(database, "rooms/" + ROOM_ID);
+            serverTimeMonitored = false;
 
             console.log("GUEST: Firebase initialized for room:", ROOM_ID);
             monitorConnection();
+            monitorServerTimeOffset();
             return true;
         } catch (error) {
             console.error(
@@ -881,8 +907,9 @@
             return {
                 ...lastReportedPlaybackState,
                 timeReliable: false,
-                lastSeen: Date.now(),
-                lastUpdated: Date.now(),
+                sampledAt: serverNow(),
+                lastSeen: serverNow(),
+                lastUpdated: serverNow(),
             };
         }
 
@@ -892,8 +919,9 @@
             isBuffering: isVideoBuffering(),
             duration: getVideoDuration(),
             timeReliable: !!hasUsableVideo,
-            lastSeen: Date.now(),
-            lastUpdated: Date.now(),
+            sampledAt: serverNow(),
+            lastSeen: serverNow(),
+            lastUpdated: serverNow(),
         };
 
         if (snapshot.timeReliable) {
@@ -1093,11 +1121,14 @@
         videoElement.currentTime = time;
     }
 
-    // Estimate the host's current playback position, extrapolating from the last
-    // reported time if the host is playing.
+    // Estimate the host's current playback position. Extrapolates from the moment
+    // the host sampled it (in shared server time), so both network latency and
+    // device clock skew are corrected.
     function getExpectedHostTime() {
         if (!Number.isFinite(hostClockTime)) return null;
-        const elapsed = hostClockPlaying ? (Date.now() - hostClockUpdatedAt) / 1000 : 0;
+        const elapsed = hostClockPlaying
+            ? Math.max(0, (serverNow() - hostClockSampledAt) / 1000)
+            : 0;
         return hostClockTime + elapsed;
     }
 
@@ -1113,9 +1144,12 @@
         console.log("GUEST: Applying controller state:", hostState);
 
         // Track the host's clock so seek-lock can extrapolate the live position.
+        // sampledAt is in shared server time; fall back to receive time for old data.
         if (Number.isFinite(hostState.currentTime)) {
             hostClockTime = hostState.currentTime;
-            hostClockUpdatedAt = Date.now();
+            hostClockSampledAt = Number.isFinite(hostState.sampledAt)
+                ? hostState.sampledAt
+                : serverNow();
             hostClockPlaying = !!hostState.isPlaying && !hostState.isBuffering;
         }
 
@@ -1123,10 +1157,12 @@
 
         // Normal updates only report drift; Force Sync is the explicit seek action.
         if (options.force && hostState.currentTime !== undefined) {
+            // Seek to the host's projected live position so transit time is included.
+            const target = getExpectedHostTime() ?? hostState.currentTime;
             console.log(
-                `GUEST: Force syncing time: local=${getCurrentTime()}s, host=${hostState.currentTime}s`,
+                `GUEST: Force syncing time: local=${getCurrentTime()}s, host≈${target.toFixed(2)}s`,
             );
-            seekVideoTo(hostState.currentTime);
+            seekVideoTo(target);
         }
 
         // Sync play/pause state
@@ -1452,6 +1488,7 @@
                 isBuffering: isCurrentlyBuffering,
                 duration: playbackState.duration,
                 timeReliable: playbackState.timeReliable,
+                sampledAt: playbackState.sampledAt,
                 lastUpdated: playbackState.lastUpdated,
                 lastSeen: playbackState.lastSeen,
                 connected: true,
@@ -1495,7 +1532,7 @@
                 [`guests/${USER_ID}/userId`]: USER_ID,
                 [`guests/${USER_ID}/displayName`]: DISPLAY_NAME,
                 [`guests/${USER_ID}/connected`]: true,
-                [`guests/${USER_ID}/lastSeen`]: Date.now(),
+                [`guests/${USER_ID}/lastSeen`]: serverNow(),
             });
         } catch (error) {
             console.error("GUEST ERROR: Failed to send heartbeat:", error);
@@ -1518,6 +1555,7 @@
                 duration: playbackState.duration,
                 timeReliable: playbackState.timeReliable,
                 connected: true,
+                sampledAt: playbackState.sampledAt,
                 lastSeen: playbackState.lastSeen,
                 lastUpdated: playbackState.lastUpdated,
             },

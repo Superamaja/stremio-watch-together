@@ -41,7 +41,7 @@
     function isGuestStale(guest) {
         const lastSeen = guest?.lastSeen || guest?.lastUpdated || 0;
         if (!lastSeen) return false;
-        return (Date.now() - lastSeen) / 1000 > 20;
+        return (serverNow() - lastSeen) / 1000 > 20;
     }
 
     // Inject shared styles for the panel/modal once (hover feedback, animations,
@@ -357,8 +357,33 @@
     let isScriptActive = false;
     let isInitializationRunning = false;
     let lastForceSyncId = null;
+    let lastForceSyncAt = null;
     let seekSyncTimer = null;
     let controlPanelDirty = false;
+
+    // Shared clock: Firebase's server-time offset gives every device a common
+    // timebase so cross-device timestamps ignore local clock skew. See serverNow().
+    let serverTimeOffset = 0;
+    let serverTimeMonitored = false;
+
+    function serverNow() {
+        return Date.now() + serverTimeOffset;
+    }
+
+    async function monitorServerTimeOffset() {
+        if (serverTimeMonitored || !database) return;
+        serverTimeMonitored = true;
+        try {
+            const { ref, onValue } =
+                await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
+            onValue(ref(database, ".info/serverTimeOffset"), (snapshot) => {
+                const offset = snapshot.val();
+                if (typeof offset === "number") serverTimeOffset = offset;
+            });
+        } catch (error) {
+            console.error("HOST ERROR: Failed to monitor server time offset:", error);
+        }
+    }
 
     // Initialize Firebase
     async function initializeFirebase() {
@@ -380,6 +405,8 @@
             app = initializeApp(FIREBASE_CONFIG);
             database = getDatabase(app);
             roomRef = ref(database, "rooms/" + ROOM_ID);
+            serverTimeMonitored = false;
+            monitorServerTimeOffset();
 
             console.log("HOST: Firebase initialized for room:", ROOM_ID);
 
@@ -396,6 +423,7 @@
                     currentTime: 0,
                     isPlaying: false,
                     isBuffering: false,
+                    sampledAt: serverNow(),
                     lastUpdated: Date.now(),
                 },
                 guests: {},
@@ -926,9 +954,19 @@
             }
 
             const hostTime = getCurrentTime();
-            const guestTime = Number.isFinite(guest.currentTime)
+            const rawGuestTime = Number.isFinite(guest.currentTime)
                 ? guest.currentTime
                 : 0;
+            // Project the guest's reported position forward to "now" to cancel the
+            // upload latency, using the shared server-time clock.
+            const guestPlaying = !!guest.isPlaying && !guest.isBuffering;
+            const guestSampledAt = Number.isFinite(guest.sampledAt)
+                ? guest.sampledAt
+                : null;
+            const guestTime =
+                guestPlaying && guestSampledAt
+                    ? rawGuestTime + Math.max(0, (serverNow() - guestSampledAt) / 1000)
+                    : rawGuestTime;
             const timeReliable = guest.timeReliable !== false;
 
             guestDriftSnapshots[guestId] = {
@@ -937,7 +975,7 @@
                 guestTime,
                 timeReliable,
                 driftInfo: timeReliable ? getDriftInfo(guestTime, hostTime) : null,
-                sampledAt: Date.now(),
+                sampledAt: serverNow(),
             };
         }
     }
@@ -1042,6 +1080,7 @@
                 isPlaying: isPlaying,
                 isBuffering: isCurrentlyBuffering,
                 duration: getVideoDuration(),
+                sampledAt: serverNow(),
                 lastUpdated: Date.now(),
             };
 
@@ -1073,6 +1112,7 @@
             const { update } =
                 await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
             const currentTime = getCurrentTime();
+            const sampledAt = serverNow();
             const syncId = `${USER_ID}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
             const forceSyncState = {
                 syncId,
@@ -1082,6 +1122,7 @@
                 isPlaying: getPlayState(),
                 isBuffering: isVideoBuffering(),
                 duration: getVideoDuration(),
+                sampledAt,
             };
 
             await update(roomRef, {
@@ -1092,6 +1133,7 @@
                     isPlaying: forceSyncState.isPlaying,
                     isBuffering: forceSyncState.isBuffering,
                     duration: forceSyncState.duration,
+                    sampledAt,
                     lastUpdated: Date.now(),
                 },
                 forceSync: forceSyncState,
@@ -1099,6 +1141,7 @@
             });
 
             lastForceSyncId = syncId;
+            lastForceSyncAt = Date.now();
             updateControlPanel();
             const syncTargets = Object.values(guestStates).filter(
                 (guest) => guest && !isGuestStale(guest),
@@ -1581,9 +1624,9 @@
         const forceSyncButtonStyle = hasActionableDrift
             ? "width: 100%; padding: 10px; background: #f44336; color: white; border: 1px solid rgba(255,255,255,0.35); border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 13px; margin-bottom: 8px; box-shadow: 0 0 0 3px rgba(244,67,54,0.18);"
             : "width: 100%; padding: 10px; background: #2196F3; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; margin-bottom: 8px;";
-        const lastSyncLabel = lastForceSyncId
-            ? `Last force sync: ${formatTimestamp(hostTime)}`
-            : "No force sync sent yet";
+        const lastSyncLabel = lastForceSyncAt
+            ? `Last sync: ${new Date(lastForceSyncAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
+            : "No force sync yet";
 
         let controllerName = "You";
         if (currentControllerId !== USER_ID) {
@@ -1610,7 +1653,7 @@
             const driftInfo = driftSnapshot?.driftInfo || null;
             const lastSeen = guest.lastSeen || guest.lastUpdated || 0;
             const secondsSinceSeen = lastSeen
-                ? Math.max(0, Math.round((Date.now() - lastSeen) / 1000))
+                ? Math.max(0, Math.round((serverNow() - lastSeen) / 1000))
                 : null;
             const isStale = isGuestStale(guest);
             const statusLabel = guest.isBuffering
@@ -1625,11 +1668,15 @@
 
             const dotColor = isStale ? "#f44336" : "#4CAF50";
             const dotGlow = isStale ? "rgba(244,67,54,0.6)" : "rgba(76,175,80,0.6)";
-            const statusPill = isStale
+            const syncPill = isStale
                 ? `<span style="font-size: 10px; font-weight: 700; letter-spacing: 0.5px; color: #f44336; background: rgba(244,67,54,0.16); padding: 2px 8px; border-radius: 10px;">OFFLINE</span>`
                 : timeReliable && driftInfo
                   ? `<span style="font-size: 10px; font-weight: 700; color: ${driftInfo.color}; background: ${driftInfo.color}22; padding: 2px 8px; border-radius: 10px;">${escapeHtml(driftInfo.label)}</span>`
                   : `<span style="font-size: 10px; color: #aaa;">checking time…</span>`;
+            const bufferingPill = !isStale && guest.isBuffering
+                ? `<span style="font-size: 10px; font-weight: 700; color: #ff9800; background: rgba(255,152,0,0.16); padding: 2px 8px; border-radius: 10px;">BUFFERING</span>`
+                : "";
+            const statusPill = `${syncPill}${bufferingPill}`;
 
             guestHTML += `
                 <div style="padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.07); display: flex; align-items: center; justify-content: space-between; gap: 10px; background: ${guestRowBackground}; opacity: ${guestRowOpacity};">
@@ -1641,7 +1688,7 @@
                                 ${escapeHtml(guest.displayName || guestId)}
                             </span>
                         </div>
-                        <div>${statusPill}</div>
+                        <div style="display: flex; gap: 5px; flex-wrap: wrap;">${statusPill}</div>
                         <span style="font-size: 11px; color: #888;">
                             ${timeReliable ? `Host ${formatTimestamp(sampledHostTime)} vs Guest ${formatTimestamp(guestTime)}` : `Last host ${formatTimestamp(sampledHostTime)} vs guest ${formatTimestamp(guestTime)}`} - ${statusLabel}${secondsSinceSeen === null ? "" : `, ${secondsSinceSeen}s ago`}
                         </span>
