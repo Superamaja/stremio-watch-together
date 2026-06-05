@@ -48,6 +48,65 @@
         return (Date.now() - lastSeen) / 1000 > 20;
     }
 
+    // Inject shared styles for the panel/modal once (hover feedback, animations,
+    // backdrop, text truncation). Targets elements by container class so existing
+    // inline styles don't need to change.
+    function injectPanelStyles() {
+        if (document.getElementById("watch-together-styles")) return;
+        const style = document.createElement("style");
+        style.id = "watch-together-styles";
+        style.textContent = `
+            .host-control-panel button,
+            .watch-together-settings-popup button {
+                transition: filter 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+            }
+            .host-control-panel button:hover,
+            .watch-together-settings-popup button:hover {
+                filter: brightness(1.14);
+            }
+            .host-control-panel button:active,
+            .watch-together-settings-popup button:active {
+                transform: scale(0.97);
+            }
+            .watch-together-settings-popup input:focus {
+                outline: none;
+                border-color: #FF6B35 !important;
+                box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.22);
+            }
+            .watch-together-backdrop {
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.55);
+                backdrop-filter: blur(3px);
+                z-index: 9999;
+                animation: wt-fade-in 0.16s ease;
+            }
+            .host-control-panel { animation: wt-fade-in 0.18s ease; }
+            .watch-together-settings-popup { animation: wt-pop-in 0.18s ease; }
+            .wt-scrollbar::-webkit-scrollbar { width: 8px; }
+            .wt-scrollbar::-webkit-scrollbar-thumb {
+                background: rgba(255, 255, 255, 0.18);
+                border-radius: 4px;
+            }
+            .wt-scrollbar::-webkit-scrollbar-thumb:hover {
+                background: rgba(255, 255, 255, 0.3);
+            }
+            .wt-ellipsis {
+                display: block;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                max-width: 100%;
+            }
+            @keyframes wt-fade-in { from { opacity: 0; } to { opacity: 1; } }
+            @keyframes wt-pop-in {
+                from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
+                to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
     // Configuration Management
     const CONFIG_STORAGE_KEY = "stremio_watch_together_config";
 
@@ -358,6 +417,8 @@
     let watchTogetherButton = null;
     let settingsButton = null;
     let settingsPopup = null;
+    let settingsBackdrop = null;
+    let settingsEscHandler = null;
     let bufferingObserver = null;
     let playPauseObserver = null;
     let syncInterval = null;
@@ -373,6 +434,7 @@
     let isInitializationRunning = false;
     let lastForceSyncId = null;
     let seekSyncTimer = null;
+    let controlPanelDirty = false;
 
     // Initialize Firebase
     async function initializeFirebase() {
@@ -597,6 +659,14 @@
             settingsPopup.remove();
             settingsPopup = null;
         }
+        if (settingsBackdrop) {
+            settingsBackdrop.remove();
+            settingsBackdrop = null;
+        }
+        if (settingsEscHandler) {
+            document.removeEventListener("keydown", settingsEscHandler);
+            settingsEscHandler = null;
+        }
     }
 
     function clearAllSettings() {
@@ -655,6 +725,11 @@
     function showSettingsPopup() {
         hideSettingsPopup();
 
+        settingsBackdrop = document.createElement("div");
+        settingsBackdrop.className = "watch-together-backdrop";
+        settingsBackdrop.addEventListener("click", hideSettingsPopup);
+        document.body.appendChild(settingsBackdrop);
+
         settingsPopup = document.createElement("div");
         settingsPopup.className = "watch-together-settings-popup";
         settingsPopup.style.cssText = `
@@ -681,7 +756,7 @@
                     <h3 style="margin: 0; font-size: 20px; font-weight: 700;">Watch Together Settings</h3>
                     <p style="margin: 6px 0 0 0; opacity: 0.9; font-size: 13px;">Room and identity settings</p>
                 </div>
-                <button id="closeSettings" title="Close Settings" style="background: rgba(0,0,0,0.2); border: none; color: white; width: 34px; height: 34px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center;">x</button>
+                <button id="closeSettings" title="Close Settings" aria-label="Close Settings" style="background: rgba(0,0,0,0.2); border: none; color: white; width: 34px; height: 34px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px; line-height: 1;">&times;</button>
             </div>
             <div style="padding: 20px;">
                 <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #e0e0e0;">Display Name</label>
@@ -716,6 +791,13 @@
         document.getElementById("roomIdInput").addEventListener("keydown", (e) => {
             if (e.key === "Enter") saveSettings();
         });
+
+        settingsEscHandler = (e) => {
+            if (e.key === "Escape") hideSettingsPopup();
+        };
+        document.addEventListener("keydown", settingsEscHandler);
+
+        document.getElementById("displayNameInput").focus();
 
         console.log("HOST: Settings popup shown");
     }
@@ -1536,6 +1618,13 @@
     function updateControlPanel() {
         if (!controlPanel) return;
 
+        // Skip the (expensive) full re-render while the panel is hidden; it will
+        // be rebuilt the next time it's shown. Avoids needless work every ~2s.
+        if (controlPanel.style.display === "none") {
+            controlPanelDirty = true;
+            return;
+        }
+
         const guestEntries = Object.entries(guestStates).filter(([, guest]) => guest);
         const guestCount = guestEntries.length;
         const onlineCount = guestEntries.filter(([, guest]) => !isGuestStale(guest)).length;
@@ -1598,7 +1687,7 @@
                 <div style="padding: 12px; border-bottom: 1px solid #333; display: flex; align-items: center; justify-content: space-between; background: ${guestRowBackground}; opacity: ${guestRowOpacity};">
                     <div style="flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0;">
                         ${isController ? '<span style="font-size: 16px;">👑</span>' : ""}
-                        <span style="font-weight: ${isController ? "600" : "400"}; color: ${isController ? "#4CAF50" : "#e0e0e0"};">
+                        <span class="wt-ellipsis" style="font-weight: ${isController ? "600" : "400"}; color: ${isController ? "#4CAF50" : "#e0e0e0"};">
                             ${escapeHtml(guest.displayName || guestId)}
                         </span>
                         <span style="font-size: 11px; color: ${timeReliable && driftInfo ? driftInfo.color : "#aaa"}; font-weight: 700;">
@@ -1647,16 +1736,16 @@
 
             requestsHTML += `
                 <div style="padding: 12px; border-bottom: 1px solid #333; display: flex; align-items: center; justify-content: space-between; background: rgba(255, 152, 0, 0.1);">
-                    <div style="flex: 1;">
-                        <div style="font-weight: 600; color: #ff9800; font-size: 13px;">${escapeHtml(request.displayName || requesterId)}</div>
+                    <div style="flex: 1; min-width: 0;">
+                        <div class="wt-ellipsis" style="font-weight: 600; color: #ff9800; font-size: 13px;">${escapeHtml(request.displayName || requesterId)}</div>
                         <div style="font-size: 11px; color: #aaa;">Requesting control</div>
                     </div>
                     <div style="display: flex; gap: 6px;">
-                        <button onclick="window.approveControlRequestHandler('${requesterId}')"
+                        <button onclick="window.approveControlRequestHandler('${requesterId}')" title="Approve control" aria-label="Approve control"
                                 style="padding: 6px 12px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600;">
                             ✓
                         </button>
-                        <button onclick="window.denyControlRequestHandler('${requesterId}')" 
+                        <button onclick="window.denyControlRequestHandler('${requesterId}')" title="Deny control" aria-label="Deny control"
                                 style="padding: 6px 12px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600;">
                             ✗
                         </button>
@@ -1664,6 +1753,9 @@
                 </div>
             `;
         }
+
+        // Preserve the guest list's scroll position across the full re-render.
+        const prevScroll = controlPanel.querySelector(".wt-guest-list")?.scrollTop || 0;
 
         controlPanel.innerHTML = `
             <div style="background: linear-gradient(135deg, #FF6B35 0%, #ff8c42 100%); padding: 15px; display: flex; justify-content: space-between; align-items: center;">
@@ -1705,7 +1797,7 @@
                     <div style="padding: 12px 15px; font-weight: 600; font-size: 13px; color: #ff9800; border-bottom: 1px solid #333;">
                         Control Requests (${requestCount})
                     </div>
-                    <div style="max-height: 150px; overflow-y: auto;">
+                    <div class="wt-scrollbar" style="max-height: 150px; overflow-y: auto;">
                         ${requestsHTML}
                     </div>
                 </div>
@@ -1720,8 +1812,8 @@
                     <div style="padding: 12px 15px; font-weight: 600; font-size: 13px; color: #e0e0e0; border-bottom: 1px solid #333;">
                         Connected Guests
                     </div>
-                    <div style="max-height: 200px; overflow-y: auto;">
-                        ${guestHTML || '<div style="padding: 15px; text-align: center; color: #aaa; font-size: 13px;">No guests connected</div>'}
+                    <div class="wt-guest-list wt-scrollbar" style="max-height: 200px; overflow-y: auto;">
+                        ${guestHTML}
                     </div>
                 </div>
             `
@@ -1733,6 +1825,10 @@
             }
         `;
 
+        const guestList = controlPanel.querySelector(".wt-guest-list");
+        if (guestList) guestList.scrollTop = prevScroll;
+
+        controlPanelDirty = false;
         console.log("HOST: Control panel updated");
     }
 
@@ -1742,6 +1838,7 @@
 
         if (controlPanel.style.display === "none") {
             controlPanel.style.display = "block";
+            if (controlPanelDirty) updateControlPanel();
         } else {
             controlPanel.style.display = "none";
         }
@@ -1751,6 +1848,7 @@
     function showControlPanel() {
         if (controlPanel) {
             controlPanel.style.display = "block";
+            if (controlPanelDirty) updateControlPanel();
         }
     }
 
@@ -2019,6 +2117,7 @@
             }
         }
 
+        injectPanelStyles();
         createWatchTogetherButton();
         createControlPanelButton();
         createSettingsButton();
