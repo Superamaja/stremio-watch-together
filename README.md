@@ -2,7 +2,7 @@
 
 An improved fork of the original Stremio Watch Together userscripts for synchronized watching on Stremio Web Player.
 
-This fork keeps the original host/guest watch-party idea and adds a more maintainable build workflow, stronger sync controls, and better diagnostics for checking whether guests are actually in sync.
+This fork keeps the original host/guest watch-party idea and adds a maintainable build workflow, clearer controls, manual-first sync behavior, and better diagnostics for checking whether guests are actually in sync.
 
 ## Original Project Credit
 
@@ -28,16 +28,19 @@ Firebase defaults are injected at build time from `.env`. Copy `.env.example` to
 
 The `dist/` folder is git-ignored because generated userscripts can contain Firebase values from `.env`.
 
+Use `pnpm` for project commands.
+
 ## 📺 YouTube Tutorial
 
 **Watch the complete setup guide:** [https://youtu.be/6wSY6W3euu8](https://youtu.be/6wSY6W3euu8)
 
 ## 🚀 Features
 
-- **Real-time synchronization** - All participants watch in perfect sync
-- **Host/Guest system** - One person controls playback, others follow
+- **Manual-first synchronization** - Participants exchange playback status continuously, but time correction happens through explicit Force Sync.
+- **Host/Guest system** - One person controls playback, others follow play/pause state.
 - **Firebase integration** - Reliable real-time communication
-- **Easy setup** - Simple userscript installation
+- **Drift diagnostics** - The host control panel shows guest timestamps, drift, buffering, and stale/offline status.
+- **Build-time configuration** - Firebase defaults are injected from `.env` into ignored `dist/` userscripts.
 - **Cross-platform** - Works on any device with Tampermonkey
 
 ## 📋 Prerequisites
@@ -146,7 +149,9 @@ The `dist/` folder is git-ignored because generated userscripts can contain Fire
     - Press `Ctrl+S` (or `Cmd+S` on Mac)
     - Close the editor
 
-6. **Or Just watch a video on stremio, it will ask for the configuration**
+6. **Open Stremio:**
+    - Start a video on Stremio Web Player.
+    - Use the settings button only for Room ID and display name changes.
 
 #### For Guests (People who join the session):
 
@@ -166,53 +171,49 @@ The `dist/` folder is git-ignored because generated userscripts can contain Fire
    - Use the same generated `.env` defaults as the host.
 
 5. **Update Room ID (Important!):**
-    - Find `ROOM_ID = 'room123'` (around line 39)
-    - Change `'room123'` to match the host's room ID
-    - Example: `ROOM_ID = 'myroom456'`
+    - Use the settings button in Stremio to enter the same Room ID as the host.
+    - You can also change the default in `src/guest.user.js` before building.
 
 6. **Save the Script:**
     - Press `Ctrl+S` (or `Cmd+S` on Mac)
     - Close the editor
 
-7. **Or Just watch a video on stremio, it will ask for the configuration**
+7. **Open Stremio:**
+    - Start the same video as the host.
+    - Click the sync button to follow host playback.
 
 ### Step 4: Using the Script
 
 1. **Host Instructions:**
     - Go to [Stremio Web Player](https://web.stremio.com/)
     - Start playing any movie/show
-    - The script will automatically load and show a "Watch Together" button
-    - Click the button to start a session
-    - Share the room ID with your friends
+    - The script will show Watch Together controls in the player bar
+    - Click the sync button to begin broadcasting play/pause status
+    - Open the control panel to view guest drift and use Force Sync when needed
+    - Share the room ID with your friends manually
 
 2. **Guest Instructions:**
     - Go to [Stremio Web Player](https://web.stremio.com/)
     - Make sure your room ID matches the host's room ID
-    - The script will automatically connect to the host's session
-    - Your playback will sync with the host
+    - Click the sync button to follow the host
+    - Your play/pause state follows the current controller, but time drift is corrected only when the host uses Force Sync
 
 ## ⚙️ Configuration
 
 ### Changing Room ID
 
-**Host:**
-
-- In `src/host.user.js`, find line 31: `let ROOM_ID = 'room123';`
-- Change `'room123'` to your desired room name
-
-**Guests:**
-
-- In `src/guest.user.js`, find line 39: `let ROOM_ID = 'room123';`
-- Change `'room123'` to match the host's room ID
+- Use the settings button in the Stremio player controls to update Room ID and display name.
+- Hosts and guests must use the same Room ID.
+- You can also change the default `ROOM_ID` in `src/host.user.js` or `src/guest.user.js` before building.
 
 ### Advanced Settings
 
 Both scripts include settings panels accessible via the UI:
 
 - **Room ID management**
-- **Firebase configuration**
-- **Connection status**
-- **Debug information**
+- **Display name management**
+
+Firebase is configured at build time through `.env`, not through the in-player settings panel.
 
 ## 🔧 Troubleshooting
 
@@ -230,8 +231,9 @@ Both scripts include settings panels accessible via the UI:
 
 3. **Sync problems:**
     - Check internet connection
-    - Try refreshing the page
-    - Restart the session
+    - Check guest drift in the host control panel
+    - Use Force Sync if guests are behind or ahead
+    - Try refreshing the page if a guest appears stale/offline
 
 ### Debug Mode:
 
@@ -242,18 +244,26 @@ Both scripts include settings panels accessible via the UI:
 ## 📝 Notes
 
 - **Room ID must be identical** between host and all guests
-- **Firebase configuration must be identical** for all participants
+- **Firebase configuration must be built into both generated scripts from the same `.env`**
 - **Script only works on Stremio Web Player** (not desktop app)
 - **All participants must be on the same video** for sync to work
+- **Normal drift does not auto-seek**; use Force Sync for manual correction
 
 ## Improvements in This Fork
 
 - **Force Sync button** - The host control panel can now send an immediate sync event to guests.
+- **Force Sync emphasis** - The button becomes more prominent when reliable guest drift exceeds the warning threshold.
 - **Guest drift visibility** - The host can see each guest's timestamp compared with the host timestamp.
 - **Manual drift correction** - Normal updates show drift without auto-seeking; use Force Sync when you want everyone snapped back together.
 - **Better guest status reporting** - Guests report current time, play state, buffering state, duration, and last-seen time.
+- **Stale guest styling** - Guests fade and show as offline after missed heartbeats.
+- **Safer drift readings** - Temporary guest video-state misses no longer appear as real `0:00` drift.
+- **Non-destructive heartbeat updates** - Guest heartbeats update connection fields without wiping timestamp data.
 - **More reliable video state detection** - Sync logic now prefers the browser's actual `<video>` element over fragile Stremio UI labels.
+- **Clearer controls** - Sync, settings, control panel, and request-control buttons use Lucide icons instead of confusing chat-style icons.
+- **Cleaner in-player settings** - Firebase editing and invite-link UI were removed; settings now focus on room ID and display name.
 - **Build-time Firebase defaults** - Firebase defaults can be injected from `.env` instead of hardcoding a project in source.
+- **Ignored generated output** - Built userscripts go to `dist/`, which is git-ignored so injected Firebase values are not committed.
 - **Maintainable source layout** - The revived scripts live in `src/`, while generated Tampermonkey install files are written to ignored `dist/`.
 
 Planned future improvement: add a same-video identity check so host and guests can detect when they are not watching the same Stremio item or stream.

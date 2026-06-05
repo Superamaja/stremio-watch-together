@@ -357,6 +357,7 @@
     let isScriptActive = false;
     let isInitializationRunning = false;
     let lastAppliedForceSyncId = null;
+    let lastReportedPlaybackState = null;
 
     // Initialize Firebase
     async function initializeFirebase() {
@@ -389,18 +390,21 @@
             roomRef = ref(database, "rooms/" + ROOM_ID);
 
             console.log("GUEST: Firebase initialized for room:", ROOM_ID);
+            const playbackState = getGuestPlaybackSnapshot();
 
             // Register as guest in the room
             await update(roomRef, {
                 ["guests/" + USER_ID]: {
                     userId: USER_ID,
                     displayName: DISPLAY_NAME,
-                    currentTime: getCurrentTime(),
-                    isPlaying: getPlayState(),
-                    isBuffering: isVideoBuffering(),
-                    duration: getVideoDuration(),
+                    currentTime: playbackState.currentTime,
+                    isPlaying: playbackState.isPlaying,
+                    isBuffering: playbackState.isBuffering,
+                    duration: playbackState.duration,
+                    timeReliable: playbackState.timeReliable,
                     connected: true,
-                    lastSeen: Date.now(),
+                    lastSeen: playbackState.lastSeen,
+                    lastUpdated: playbackState.lastUpdated,
                 },
             });
 
@@ -609,126 +613,6 @@
         settingsButton.addEventListener("click", toggleSettingsPopup);
 
         console.log("GUEST: Settings button created");
-    }
-
-    function hideSettingsPopup() {
-        if (settingsPopup) {
-            settingsPopup.remove();
-            settingsPopup = null;
-        }
-    }
-
-    // Clear all settings
-    function clearAllSettings() {
-        if (
-            confirm(
-                "Are you sure you want to clear all settings? This will reset to default values.",
-            )
-        ) {
-            clearConfig();
-            hideSettingsPopup();
-            showHostStatus("Settings cleared - reloading...");
-            setTimeout(() => {
-                location.reload();
-            }, 2000);
-        }
-    }
-
-    // Save settings
-    async function saveSettings() {
-        const newRoomId = document.getElementById("roomIdInput").value.trim();
-        const newDisplayName = (
-            document.getElementById("displayNameInput")
-                ? document.getElementById("displayNameInput").value.trim()
-                : ""
-        ).trim();
-
-        if (!newRoomId) {
-            alert("Room ID cannot be empty!");
-            return;
-        }
-
-        // Get Firebase configuration
-        const newFirebaseConfig = {
-            apiKey: document.getElementById("apiKeyInput").value.trim(),
-            authDomain: document.getElementById("authDomainInput").value.trim(),
-            projectId: document.getElementById("projectIdInput").value.trim(),
-            storageBucket: document
-                .getElementById("storageBucketInput")
-                .value.trim(),
-            messagingSenderId: document
-                .getElementById("messagingSenderIdInput")
-                .value.trim(),
-            appId: document.getElementById("appIdInput").value.trim(),
-            measurementId: document
-                .getElementById("measurementIdInput")
-                .value.trim(),
-            databaseURL:
-                document.getElementById("databaseUrlInput").value.trim() ||
-                document.getElementById("easyDatabaseUrlInput").value.trim(),
-        };
-
-        // Validate Firebase config
-        const requiredFields = [
-            "apiKey",
-            "authDomain",
-            "projectId",
-            "databaseURL",
-        ];
-        for (const field of requiredFields) {
-            if (!newFirebaseConfig[field]) {
-                alert(`${field} is required!`);
-                return;
-            }
-        }
-
-        const roomChanged = newRoomId !== ROOM_ID;
-        const nameChanged = newDisplayName !== DISPLAY_NAME;
-        const firebaseChanged =
-            JSON.stringify(newFirebaseConfig) !==
-            JSON.stringify(firebaseConfig);
-
-        if (!roomChanged && !firebaseChanged && !nameChanged) {
-            hideSettingsPopup();
-            return;
-        }
-
-        console.log(`GUEST: Updating configuration...`);
-
-        // Stop current following if running
-        if (isFollowingHost) {
-            stopFollowingHost();
-        }
-
-        // Update configuration
-        ROOM_ID = newRoomId;
-        DISPLAY_NAME = newDisplayName;
-        firebaseConfig = newFirebaseConfig;
-
-        // Save to localStorage
-        saveConfig();
-
-        // Reinitialize Firebase with new config
-        const firebaseReady = await initializeFirebase();
-        if (firebaseReady) {
-            console.log(`GUEST: Successfully updated configuration`);
-            hideSettingsPopup();
-
-            // Show success message
-            showHostStatus(
-                `Configuration updated - Room: ${ROOM_ID}${DISPLAY_NAME ? " - Name: " + DISPLAY_NAME : ""}`,
-            );
-            setTimeout(() => {
-                const existingStatus = document.querySelector(
-                    ".host-status-message",
-                );
-                if (existingStatus) existingStatus.remove();
-            }, 3000);
-        } else {
-            alert(
-                "Failed to connect with new configuration. Please check your Firebase settings.",
-            );
-        }
     }
 
     function hideSettingsPopup() {
@@ -1010,6 +894,38 @@
         return videoElement && Number.isFinite(videoElement.duration)
             ? videoElement.duration
             : 0;
+    }
+
+    function getGuestPlaybackSnapshot() {
+        const hasUsableVideo =
+            videoElement &&
+            Number.isFinite(videoElement.currentTime) &&
+            (videoElement.readyState > 0 || getVideoDuration() > 0);
+
+        if (!hasUsableVideo && lastReportedPlaybackState) {
+            return {
+                ...lastReportedPlaybackState,
+                timeReliable: false,
+                lastSeen: Date.now(),
+                lastUpdated: Date.now(),
+            };
+        }
+
+        const snapshot = {
+            currentTime: getCurrentTime(),
+            isPlaying: getPlayState(),
+            isBuffering: isVideoBuffering(),
+            duration: getVideoDuration(),
+            timeReliable: !!hasUsableVideo,
+            lastSeen: Date.now(),
+            lastUpdated: Date.now(),
+        };
+
+        if (snapshot.timeReliable) {
+            lastReportedPlaybackState = snapshot;
+        }
+
+        return snapshot;
     }
 
     function formatTimestamp(seconds) {
@@ -1505,9 +1421,10 @@
             const { update } =
                 await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
 
-            const currentTime = getCurrentTime();
-            const isPlaying = getPlayState();
-            const isCurrentlyBuffering = isVideoBuffering();
+            const playbackState = getGuestPlaybackSnapshot();
+            const currentTime = playbackState.currentTime;
+            const isPlaying = playbackState.isPlaying;
+            const isCurrentlyBuffering = playbackState.isBuffering;
 
             // If we have control, send full state including video control
             // If not, only send status info
@@ -1517,9 +1434,10 @@
                 currentTime: currentTime,
                 isPlaying: isPlaying,
                 isBuffering: isCurrentlyBuffering,
-                duration: getVideoDuration(),
-                lastUpdated: Date.now(),
-                lastSeen: Date.now(),
+                duration: playbackState.duration,
+                timeReliable: playbackState.timeReliable,
+                lastUpdated: playbackState.lastUpdated,
+                lastSeen: playbackState.lastSeen,
                 connected: true,
             };
 
@@ -1535,6 +1453,7 @@
             } else {
                 console.log("GUEST: Sending status only (no control):", {
                     isBuffering: isCurrentlyBuffering,
+                    timeReliable: playbackState.timeReliable,
                 });
             }
 
@@ -1557,12 +1476,10 @@
                 await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
 
             await update(roomRef, {
-                ["guests/" + USER_ID]: {
-                    userId: USER_ID,
-                    displayName: DISPLAY_NAME,
-                    connected: true,
-                    lastSeen: Date.now(),
-                },
+                [`guests/${USER_ID}/userId`]: USER_ID,
+                [`guests/${USER_ID}/displayName`]: DISPLAY_NAME,
+                [`guests/${USER_ID}/connected`]: true,
+                [`guests/${USER_ID}/lastSeen`]: Date.now(),
             });
         } catch (error) {
             console.error("GUEST ERROR: Failed to send heartbeat:", error);

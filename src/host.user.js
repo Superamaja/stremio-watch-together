@@ -579,164 +579,6 @@
         }
     }
 
-    // Copy shareable link to clipboard
-    function copyShareableLink() {
-        const linkInput = document.getElementById("shareableLink");
-        linkInput.select();
-        linkInput.setSelectionRange(0, 99999); // For mobile devices
-
-        try {
-            document.execCommand("copy");
-            const copyButton = document.getElementById("copyLink");
-            const originalText = copyButton.textContent;
-            copyButton.textContent = "Copied!";
-            copyButton.style.background = "#4CAF50";
-            setTimeout(() => {
-                copyButton.textContent = originalText;
-                copyButton.style.background = "#4CAF50";
-            }, 2000);
-            console.log("HOST: Shareable link copied to clipboard");
-        } catch (error) {
-            console.error("HOST ERROR: Failed to copy link:", error);
-            alert("Failed to copy link. Please copy manually.");
-        }
-    }
-
-    // Update shareable link when room ID changes
-    function updateShareableLink() {
-        const roomId = document.getElementById("roomIdInput").value;
-        const linkInput = document.getElementById("shareableLink");
-        linkInput.value = `https://web.stremio.com/watchtogether?room=${roomId}`;
-    }
-
-    // Clear all settings
-    function clearAllSettings() {
-        if (
-            confirm(
-                "Are you sure you want to clear all settings? This will reset to default values.",
-            )
-        ) {
-            clearConfig();
-            hideSettingsPopup();
-            showGuestStatus("Settings cleared - reloading...");
-            setTimeout(() => {
-                location.reload();
-            }, 2000);
-        }
-    }
-
-    // Save settings
-    async function saveSettings() {
-        const newRoomId = document.getElementById("roomIdInput").value.trim();
-        const newDisplayName = (
-            document.getElementById("displayNameInput")
-                ? document.getElementById("displayNameInput").value.trim()
-                : ""
-        ).trim();
-
-        if (!newRoomId) {
-            alert("Room ID cannot be empty!");
-            return;
-        }
-
-        // Get Firebase configuration
-        const newFirebaseConfig = {
-            apiKey: document.getElementById("apiKeyInput").value.trim(),
-            authDomain: document.getElementById("authDomainInput").value.trim(),
-            projectId: document.getElementById("projectIdInput").value.trim(),
-            storageBucket: document
-                .getElementById("storageBucketInput")
-                .value.trim(),
-            messagingSenderId: document
-                .getElementById("messagingSenderIdInput")
-                .value.trim(),
-            appId: document.getElementById("appIdInput").value.trim(),
-            measurementId: document
-                .getElementById("measurementIdInput")
-                .value.trim(),
-            databaseURL:
-                document.getElementById("databaseUrlInput").value.trim() ||
-                document.getElementById("easyDatabaseUrlInput").value.trim(),
-        };
-
-        // Validate Firebase config
-        const requiredFields = [
-            "apiKey",
-            "authDomain",
-            "projectId",
-            "databaseURL",
-        ];
-        for (const field of requiredFields) {
-            if (!newFirebaseConfig[field]) {
-                alert(`${field} is required!`);
-                return;
-            }
-        }
-
-        const roomChanged = newRoomId !== ROOM_ID;
-        const nameChanged = newDisplayName !== DISPLAY_NAME;
-        const firebaseChanged =
-            JSON.stringify(newFirebaseConfig) !==
-            JSON.stringify(firebaseConfig);
-
-        if (!roomChanged && !firebaseChanged && !nameChanged) {
-            hideSettingsPopup();
-            return;
-        }
-
-        console.log(`HOST: Updating configuration...`);
-
-        // Stop current sync if running
-        if (watchTogetherEnabled) {
-            stopSync();
-        }
-
-        // Update configuration
-        ROOM_ID = newRoomId;
-        DISPLAY_NAME = newDisplayName;
-        firebaseConfig = newFirebaseConfig;
-
-        // Save to localStorage
-        saveConfig();
-
-        // Reinitialize Firebase with new config
-        const firebaseReady = await initializeFirebase();
-        if (firebaseReady) {
-            console.log(`HOST: Successfully updated configuration`);
-            hideSettingsPopup();
-
-            // Show success message
-            showGuestStatus(
-                `Configuration updated - Room: ${ROOM_ID}${DISPLAY_NAME ? " - Name: " + DISPLAY_NAME : ""}`,
-            );
-            setTimeout(() => {
-                const existingStatus = document.querySelector(
-                    ".guest-status-display",
-                );
-                if (existingStatus) existingStatus.remove();
-            }, 3000);
-        } else {
-            alert(
-                "Failed to connect with new configuration. Please check your Firebase settings.",
-            );
-        }
-    }
-
-    function hideSettingsPopup() {
-        if (settingsPopup) {
-            settingsPopup.remove();
-            settingsPopup = null;
-        }
-    }
-
-    function updateShareableLink() {
-        const roomId = document.getElementById("roomIdInput").value;
-        const linkInput = document.getElementById("shareableLink");
-        if (linkInput) {
-            linkInput.value = `https://web.stremio.com/watchtogether?room=${encodeURIComponent(roomId)}`;
-        }
-    }
-
     function clearAllSettings() {
         if (
             confirm(
@@ -813,7 +655,6 @@
             overflow: hidden;
         `;
 
-        const inviteLink = `https://web.stremio.com/watchtogether?room=${encodeURIComponent(ROOM_ID)}`;
         settingsPopup.innerHTML = `
             <div style="background: linear-gradient(135deg, #FF6B35 0%, #ff8c42 100%); padding: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
                 <div>
@@ -830,12 +671,6 @@
                 <div style="display: flex; gap: 8px; margin-bottom: 16px;">
                     <input type="text" id="roomIdInput" value="${ROOM_ID}" style="flex: 1; min-width: 0; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #2a2a2a; color: white; font-size: 14px;">
                     <button id="copyRoomId" title="Copy Room ID" style="width: 46px; border: none; border-radius: 8px; background: #444; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center;">${lucideIcon("clipboard-copy", 20)}</button>
-                </div>
-
-                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #e0e0e0;">Invite Link</label>
-                <div style="display: flex; gap: 8px; margin-bottom: 20px;">
-                    <input type="text" id="shareableLink" value="${inviteLink}" readonly style="flex: 1; min-width: 0; padding: 12px; border: 2px solid #444; border-radius: 8px; background: #1a1a1a; color: #4CAF50; font-size: 12px;">
-                    <button id="copyLink" title="Copy Invite Link" style="width: 46px; border: none; border-radius: 8px; background: #4CAF50; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center;">${lucideIcon("link-2", 20)}</button>
                 </div>
 
                 <div style="padding: 12px; border-left: 4px solid #FF6B35; background: rgba(255, 107, 53, 0.08); color: #ddd; font-size: 12px; line-height: 1.45; margin-bottom: 20px;">
@@ -858,8 +693,6 @@
         document.getElementById("saveSettings").addEventListener("click", saveSettings);
         document.getElementById("clearConfig").addEventListener("click", clearAllSettings);
         document.getElementById("copyRoomId").addEventListener("click", () => copySettingsText(document.getElementById("roomIdInput").value.trim(), "copyRoomId"));
-        document.getElementById("copyLink").addEventListener("click", () => copySettingsText(document.getElementById("shareableLink").value, "copyLink"));
-        document.getElementById("roomIdInput").addEventListener("input", updateShareableLink);
         document.getElementById("roomIdInput").addEventListener("keydown", (e) => {
             if (e.key === "Enter") saveSettings();
         });
@@ -1605,6 +1438,24 @@
         const guestCount = Object.keys(guestStates).length;
         const requestCount = Object.keys(controlRequests).length;
         const hostTime = getCurrentTime();
+        const hasActionableDrift = Object.values(guestStates).some((guest) => {
+            if (!guest || guest.timeReliable === false) return false;
+            const lastSeen = guest.lastSeen || guest.lastUpdated || 0;
+            const secondsSinceSeen = lastSeen
+                ? Math.max(0, Math.round((Date.now() - lastSeen) / 1000))
+                : null;
+            if (secondsSinceSeen !== null && secondsSinceSeen > 20) return false;
+            const guestTime = Number.isFinite(guest.currentTime)
+                ? guest.currentTime
+                : 0;
+            return Math.abs(guestTime - hostTime) > 4;
+        });
+        const forceSyncButtonLabel = hasActionableDrift
+            ? "Force Sync Guests - Drift Detected"
+            : "Force Sync Guests";
+        const forceSyncButtonStyle = hasActionableDrift
+            ? "width: 100%; padding: 10px; background: #f44336; color: white; border: 1px solid rgba(255,255,255,0.35); border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 13px; margin-bottom: 8px; box-shadow: 0 0 0 3px rgba(244,67,54,0.18);"
+            : "width: 100%; padding: 10px; background: #2196F3; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; margin-bottom: 8px;";
         const lastSyncLabel = lastForceSyncId
             ? `Last force sync: ${formatTimestamp(hostTime)}`
             : "No force sync sent yet";
@@ -1624,29 +1475,35 @@
             const guestTime = Number.isFinite(guest.currentTime)
                 ? guest.currentTime
                 : 0;
-            const driftInfo = getDriftInfo(guestTime);
+            const timeReliable = guest.timeReliable !== false;
+            const driftInfo = timeReliable ? getDriftInfo(guestTime) : null;
             const lastSeen = guest.lastSeen || guest.lastUpdated || 0;
             const secondsSinceSeen = lastSeen
                 ? Math.max(0, Math.round((Date.now() - lastSeen) / 1000))
                 : null;
+            const isStale = secondsSinceSeen !== null && secondsSinceSeen > 20;
             const statusLabel = guest.isBuffering
                 ? "buffering"
                 : guest.isPlaying
                   ? "playing"
                   : "paused";
+            const guestRowBackground = isStale
+                ? "rgba(244, 67, 54, 0.08)"
+                : "transparent";
+            const guestRowOpacity = isStale ? "0.62" : "1";
 
             guestHTML += `
-                <div style="padding: 12px; border-bottom: 1px solid #333; display: flex; align-items: center; justify-content: space-between;">
+                <div style="padding: 12px; border-bottom: 1px solid #333; display: flex; align-items: center; justify-content: space-between; background: ${guestRowBackground}; opacity: ${guestRowOpacity};">
                     <div style="flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0;">
                         ${isController ? '<span style="font-size: 16px;">👑</span>' : ""}
                         <span style="font-weight: ${isController ? "600" : "400"}; color: ${isController ? "#4CAF50" : "#e0e0e0"};">
                             ${guest.displayName || guestId}
                         </span>
-                        <span style="font-size: 11px; color: ${driftInfo.color}; font-weight: 700;">
-                            ${driftInfo.label}
+                        <span style="font-size: 11px; color: ${timeReliable ? driftInfo.color : "#aaa"}; font-weight: 700;">
+                            ${isStale ? "offline" : timeReliable ? driftInfo.label : "checking time..."}
                         </span>
                         <span style="font-size: 11px; color: #aaa;">
-                            ${formatTimestamp(guestTime)} vs ${formatTimestamp(hostTime)} - ${statusLabel}${secondsSinceSeen === null ? "" : `, ${secondsSinceSeen}s ago`}
+                            ${timeReliable ? `${formatTimestamp(guestTime)} vs ${formatTimestamp(hostTime)}` : `last ${formatTimestamp(guestTime)} vs ${formatTimestamp(hostTime)}`} - ${statusLabel}${secondsSinceSeen === null ? "" : `, ${secondsSinceSeen}s ago`}
                         </span>
                     </div>
                     <div>
@@ -1715,8 +1572,8 @@
                     <div>Host time: ${formatTimestamp(hostTime)}</div>
                     <div>${lastSyncLabel}</div>
                 </div>
-                <button onclick="window.forceSyncGuestsHandler()" style="width: 100%; padding: 10px; background: #2196F3; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; margin-bottom: 8px;">
-                    Force Sync Guests
+                <button onclick="window.forceSyncGuestsHandler()" style="${forceSyncButtonStyle}">
+                    ${forceSyncButtonLabel}
                 </button>
                 ${
                     currentControllerId !== USER_ID
