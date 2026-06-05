@@ -358,6 +358,7 @@
     let isInitializationRunning = false;
     let lastAppliedForceSyncId = null;
     let lastReportedPlaybackState = null;
+    let needsInitialSync = false;
 
     // Initialize Firebase
     async function initializeFirebase() {
@@ -1375,11 +1376,13 @@
                     // Apply state from whoever has the control token
                     const controllerState = getControllerState(data);
                     if (controllerState) {
+                        const isInitial = needsInitialSync;
+                        if (isInitial) needsInitialSync = false;
                         console.log(
                             "GUEST: Applying state from controller:",
                             data.permissions.controllerId,
                         );
-                        applyHostState(controllerState);
+                        applyHostState(controllerState, { force: isInitial });
                     } else {
                         console.log("GUEST: No controller state found");
                     }
@@ -1494,6 +1497,7 @@
     // Start following host
     function startFollowingHost() {
         isFollowingHost = true;
+        needsInitialSync = true;
 
         // Register in the room now that the guest has chosen to sync
         registerGuestInRoom();

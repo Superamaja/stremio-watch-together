@@ -354,6 +354,7 @@
     let isScriptActive = false;
     let isInitializationRunning = false;
     let lastForceSyncId = null;
+    let seekSyncTimer = null;
 
     // Initialize Firebase
     async function initializeFirebase() {
@@ -1788,7 +1789,6 @@
             videoStateListeners = [
                 "play",
                 "pause",
-                "seeked",
                 "waiting",
                 "playing",
                 "canplay",
@@ -1801,6 +1801,19 @@
                 videoElement.addEventListener(eventName, listener);
                 return { eventName, listener };
             });
+
+            // Seeked triggers an auto force-sync with a debounce so rapid scrubbing
+            // doesn't flood the database with sync commands.
+            const seekedListener = () => {
+                if (!watchTogetherEnabled) return;
+                sendHostState();
+                clearTimeout(seekSyncTimer);
+                seekSyncTimer = setTimeout(() => {
+                    forceSyncGuests();
+                }, 500);
+            };
+            videoElement.addEventListener("seeked", seekedListener);
+            videoStateListeners.push({ eventName: "seeked", listener: seekedListener });
         }
 
         // Observe play/pause button changes
