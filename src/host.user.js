@@ -30,6 +30,24 @@
         return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${icon}</svg>`;
     }
 
+    // Escape untrusted text (e.g. guest-supplied display names) before
+    // interpolating it into innerHTML to prevent markup/script injection.
+    function escapeHtml(value) {
+        return String(value ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    // True when a guest hasn't sent a heartbeat in over 20 seconds.
+    function isGuestStale(guest) {
+        const lastSeen = guest?.lastSeen || guest?.lastUpdated || 0;
+        if (!lastSeen) return false;
+        return (Date.now() - lastSeen) / 1000 > 20;
+    }
+
     // Configuration Management
     const CONFIG_STORAGE_KEY = "stremio_watch_together_config";
 
@@ -1354,8 +1372,10 @@
     }
 
     // Delegate control to a guest
-    async function delegateControl(guestUserId, guestName) {
+    async function delegateControl(guestUserId) {
         if (!roomRef) return;
+
+        const guestName = guestStates[guestUserId]?.displayName || guestUserId;
 
         try {
             const { update } =
@@ -1402,8 +1422,13 @@
     }
 
     // Approve control request from guest
-    async function approveControlRequest(guestUserId, guestName) {
+    async function approveControlRequest(guestUserId) {
         if (!roomRef) return;
+
+        const guestName =
+            controlRequests[guestUserId]?.displayName ||
+            guestStates[guestUserId]?.displayName ||
+            guestUserId;
 
         try {
             const { update } =
@@ -1511,16 +1536,14 @@
     function updateControlPanel() {
         if (!controlPanel) return;
 
-        const guestCount = Object.keys(guestStates).length;
+        const guestEntries = Object.entries(guestStates).filter(([, guest]) => guest);
+        const guestCount = guestEntries.length;
+        const onlineCount = guestEntries.filter(([, guest]) => !isGuestStale(guest)).length;
+        const offlineCount = guestCount - onlineCount;
         const requestCount = Object.keys(controlRequests).length;
         const hostTime = getCurrentTime();
-        const hasActionableDrift = Object.entries(guestStates).some(([guestId, guest]) => {
-            if (!guest || guest.timeReliable === false) return false;
-            const lastSeen = guest.lastSeen || guest.lastUpdated || 0;
-            const secondsSinceSeen = lastSeen
-                ? Math.max(0, Math.round((Date.now() - lastSeen) / 1000))
-                : null;
-            if (secondsSinceSeen !== null && secondsSinceSeen > 20) return false;
+        const hasActionableDrift = guestEntries.some(([guestId, guest]) => {
+            if (guest.timeReliable === false || isGuestStale(guest)) return false;
             return (guestDriftSnapshots[guestId]?.driftInfo?.absoluteDrift || 0) > 4;
         });
         const forceSyncButtonLabel = hasActionableDrift
@@ -1540,9 +1563,7 @@
         }
 
         let guestHTML = "";
-        for (const [guestId, guest] of Object.entries(guestStates)) {
-            if (!guest) continue;
-
+        for (const [guestId, guest] of guestEntries) {
             const isController = currentControllerId === guestId;
             const hasRequest = controlRequests[guestId];
             const driftSnapshot = guestDriftSnapshots[guestId];
@@ -1562,7 +1583,7 @@
             const secondsSinceSeen = lastSeen
                 ? Math.max(0, Math.round((Date.now() - lastSeen) / 1000))
                 : null;
-            const isStale = secondsSinceSeen !== null && secondsSinceSeen > 20;
+            const isStale = isGuestStale(guest);
             const statusLabel = guest.isBuffering
                 ? "buffering"
                 : guest.isPlaying
@@ -1578,7 +1599,7 @@
                     <div style="flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0;">
                         ${isController ? '<span style="font-size: 16px;">👑</span>' : ""}
                         <span style="font-weight: ${isController ? "600" : "400"}; color: ${isController ? "#4CAF50" : "#e0e0e0"};">
-                            ${guest.displayName || guestId}
+                            ${escapeHtml(guest.displayName || guestId)}
                         </span>
                         <span style="font-size: 11px; color: ${timeReliable && driftInfo ? driftInfo.color : "#aaa"}; font-weight: 700;">
                             ${isStale ? "offline" : timeReliable && driftInfo ? `Guest ${driftInfo.label}` : "checking time..."}
@@ -1601,7 +1622,7 @@
                         ${
                             !isStale && !isController && !hasRequest
                                 ? `
-                            <button onclick="window.delegateControlToGuest('${guestId}', '${guest.displayName}')"
+                            <button onclick="window.delegateControlToGuest('${guestId}')"
                                     style="padding: 6px 12px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;">
                                 Give Control
                             </button>
@@ -1627,11 +1648,11 @@
             requestsHTML += `
                 <div style="padding: 12px; border-bottom: 1px solid #333; display: flex; align-items: center; justify-content: space-between; background: rgba(255, 152, 0, 0.1);">
                     <div style="flex: 1;">
-                        <div style="font-weight: 600; color: #ff9800; font-size: 13px;">${request.displayName || requesterId}</div>
+                        <div style="font-weight: 600; color: #ff9800; font-size: 13px;">${escapeHtml(request.displayName || requesterId)}</div>
                         <div style="font-size: 11px; color: #aaa;">Requesting control</div>
                     </div>
                     <div style="display: flex; gap: 6px;">
-                        <button onclick="window.approveControlRequestHandler('${requesterId}', '${request.displayName}')" 
+                        <button onclick="window.approveControlRequestHandler('${requesterId}')"
                                 style="padding: 6px 12px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600;">
                             ✓
                         </button>
@@ -1648,7 +1669,7 @@
             <div style="background: linear-gradient(135deg, #FF6B35 0%, #ff8c42 100%); padding: 15px; display: flex; justify-content: space-between; align-items: center;">
                 <div>
                     <div style="font-weight: 600; font-size: 16px;">Control Panel</div>
-                    <div style="font-size: 12px; opacity: 0.9;">${guestCount} guest(s) connected</div>
+                    <div style="font-size: 12px; opacity: 0.9;">${onlineCount} online${offlineCount > 0 ? ` &middot; ${offlineCount} offline` : ""}</div>
                 </div>
                 <button onclick="window.toggleControlPanel()" style="background: transparent; border: none; color: white; font-size: 20px; cursor: pointer; padding: 0; width: 24px; height: 24px;">×</button>
             </div>
@@ -1657,7 +1678,7 @@
                 <div style="font-size: 13px; color: #aaa; margin-bottom: 8px;">Current Controller:</div>
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
                     <span style="font-size: 20px;">👑</span>
-                    <span style="font-weight: 600; font-size: 15px; color: #4CAF50;">${controllerName}</span>
+                    <span style="font-weight: 600; font-size: 15px; color: #4CAF50;">${escapeHtml(controllerName)}</span>
                 </div>
                 <div style="font-size: 12px; color: #ccc; margin-bottom: 10px;">
                     <div>Host time: ${formatTimestamp(hostTime)}</div>

@@ -1474,7 +1474,7 @@
     // Register this guest in the Firebase room
     async function registerGuestInRoom() {
         if (!roomRef) return;
-        const { update } =
+        const { update, ref, onDisconnect } =
             await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js");
         const playbackState = getGuestPlaybackSnapshot();
         await update(roomRef, {
@@ -1491,6 +1491,16 @@
                 lastUpdated: playbackState.lastUpdated,
             },
         });
+
+        // Auto-remove this guest from the database if the connection drops
+        // (tab closed, network lost) without an explicit unsync.
+        try {
+            const guestRef = ref(database, `rooms/${ROOM_ID}/guests/${USER_ID}`);
+            await onDisconnect(guestRef).remove();
+        } catch (error) {
+            console.error("GUEST ERROR: Failed to set up disconnect cleanup:", error);
+        }
+
         console.log("GUEST: Registered in room");
     }
 
@@ -1598,7 +1608,13 @@
     function removeGuestFromDatabase() {
         if (!roomRef) return;
         import("https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js").then(
-            ({ update }) => {
+            ({ update, ref, onDisconnect }) => {
+                // Cancel the armed disconnect handler since we're leaving cleanly.
+                try {
+                    onDisconnect(ref(database, `rooms/${ROOM_ID}/guests/${USER_ID}`)).cancel();
+                } catch (error) {
+                    // Ignore - the disconnect handler may not be set
+                }
                 update(roomRef, {
                     ["guests/" + USER_ID]: null,
                 }).catch(() => {
