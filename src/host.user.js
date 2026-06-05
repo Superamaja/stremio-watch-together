@@ -1105,19 +1105,7 @@
 
         console.log("HOST: Applying controller state:", controllerState);
 
-        const currentTime = getCurrentTime();
-        const timeDiff = Math.abs(
-            currentTime - (controllerState.currentTime || 0),
-        );
         const localIsPlaying = getPlayState();
-
-        // Sync time if difference is more than 3 seconds
-        if (timeDiff > 3 && controllerState.currentTime !== undefined) {
-            console.log(
-                `HOST: Syncing time to controller: ${controllerState.currentTime}s (was ${currentTime}s)`,
-            );
-            videoElement.currentTime = controllerState.currentTime;
-        }
 
         // Sync play/pause state
         if (controllerState.isPlaying !== undefined) {

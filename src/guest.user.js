@@ -1205,16 +1205,12 @@
 
         console.log("GUEST: Applying controller state:", hostState);
 
-        const timeDiff = Math.abs(getCurrentTime() - hostState.currentTime);
         const localIsPlaying = getPlayState();
 
-        // Sync time if forced or if difference is more than 3 seconds
-        if (
-            (options.force || timeDiff > 3) &&
-            hostState.currentTime !== undefined
-        ) {
+        // Normal updates only report drift; Force Sync is the explicit seek action.
+        if (options.force && hostState.currentTime !== undefined) {
             console.log(
-                `GUEST: Syncing time: local=${getCurrentTime()}s, host=${hostState.currentTime}s`,
+                `GUEST: Force syncing time: local=${getCurrentTime()}s, host=${hostState.currentTime}s`,
             );
             videoElement.currentTime = hostState.currentTime;
         }

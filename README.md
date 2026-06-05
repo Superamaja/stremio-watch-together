@@ -250,6 +250,7 @@ Both scripts include settings panels accessible via the UI:
 
 - **Force Sync button** - The host control panel can now send an immediate sync event to guests.
 - **Guest drift visibility** - The host can see each guest's timestamp compared with the host timestamp.
+- **Manual drift correction** - Normal updates show drift without auto-seeking; use Force Sync when you want everyone snapped back together.
 - **Better guest status reporting** - Guests report current time, play state, buffering state, duration, and last-seen time.
 - **More reliable video state detection** - Sync logic now prefers the browser's actual `<video>` element over fragile Stremio UI labels.
 - **Build-time Firebase defaults** - Firebase defaults can be injected from `.env` instead of hardcoding a project in source.
