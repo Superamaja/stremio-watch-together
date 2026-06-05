@@ -1,8 +1,9 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const distDir = path.join(rootDir, "dist");
 
 const envPath = path.join(rootDir, ".env");
 const lucideIconDir = path.join(rootDir, "node_modules", "lucide-static", "icons");
@@ -90,7 +91,7 @@ function buildFirebaseConfig(env) {
 
 async function buildUserscript(inputName, outputName, firebaseConfig, lucideIcons) {
   const inputPath = path.join(rootDir, "src", inputName);
-  const outputPath = path.join(rootDir, outputName);
+  const outputPath = path.join(distDir, outputName);
   const source = await readFile(inputPath, "utf8");
   const output = source
     .replace("__DEFAULT_FIREBASE_CONFIG__", JSON.stringify(firebaseConfig, null, 8))
@@ -108,5 +109,6 @@ const env = await loadEnv();
 const firebaseConfig = buildFirebaseConfig(env);
 const lucideIcons = await loadLucideIcons();
 
+await mkdir(distDir, { recursive: true });
 await buildUserscript("host.user.js", "host.user.js", firebaseConfig, lucideIcons);
 await buildUserscript("guest.user.js", "guest.user.js", firebaseConfig, lucideIcons);

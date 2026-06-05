@@ -21,10 +21,12 @@ pnpm run check
 
 That lints the source and rebuilds the installable Tampermonkey files:
 
-- `host.user.js`
-- `guest.user.js`
+- `dist/host.user.js`
+- `dist/guest.user.js`
 
-Firebase defaults are injected at build time from `.env`. Copy `.env.example` to `.env` and fill in your Firebase values. If `.env` is missing or empty, the generated scripts still work with the in-page settings flow, but no default Firebase project is embedded.
+Firebase defaults are injected at build time from `.env`. Copy `.env.example` to `.env` and fill in your Firebase values. If `.env` is missing or empty, the generated scripts will not connect until rebuilt with Firebase defaults.
+
+The `dist/` folder is git-ignored because generated userscripts can contain Firebase values from `.env`.
 
 ## 📺 YouTube Tutorial
 
@@ -133,12 +135,12 @@ Firebase defaults are injected at build time from `.env`. Copy `.env.example` to
     - Delete all existing content
 
 3. **Add Host Script:**
-    - Copy the entire content from `host.user.js`
+   - Copy the entire content from `dist/host.user.js`
     - Paste it into the editor
 
 4. **Update Firebase Configuration:**
-    - Recommended: copy `.env.example` to `.env`, fill in your Firebase values, then run `pnpm run build`.
-    - Alternative: leave the generated defaults empty and use the in-page settings prompt after opening Stremio.
+   - Recommended: copy `.env.example` to `.env`, fill in your Firebase values, then run `pnpm run build`.
+   - The generated script in `dist/` includes those defaults and should not be committed.
 
 5. **Save the Script:**
     - Press `Ctrl+S` (or `Cmd+S` on Mac)
@@ -157,11 +159,11 @@ Firebase defaults are injected at build time from `.env`. Copy `.env.example` to
     - Delete all existing content
 
 3. **Add Guest Script:**
-    - Copy the entire content from `guest.user.js`
+   - Copy the entire content from `dist/guest.user.js`
     - Paste it into the editor
 
 4. **Update Firebase Configuration:**
-    - Use the same generated `.env` defaults or in-page Firebase settings as the host.
+   - Use the same generated `.env` defaults as the host.
 
 5. **Update Room ID (Important!):**
     - Find `ROOM_ID = 'room123'` (around line 39)
@@ -195,12 +197,12 @@ Firebase defaults are injected at build time from `.env`. Copy `.env.example` to
 
 **Host:**
 
-- In `host.user.js`, find line 31: `let ROOM_ID = 'room123';`
+- In `src/host.user.js`, find line 31: `let ROOM_ID = 'room123';`
 - Change `'room123'` to your desired room name
 
 **Guests:**
 
-- In `guest.user.js`, find line 39: `let ROOM_ID = 'room123';`
+- In `src/guest.user.js`, find line 39: `let ROOM_ID = 'room123';`
 - Change `'room123'` to match the host's room ID
 
 ### Advanced Settings
@@ -251,7 +253,7 @@ Both scripts include settings panels accessible via the UI:
 - **Better guest status reporting** - Guests report current time, play state, buffering state, duration, and last-seen time.
 - **More reliable video state detection** - Sync logic now prefers the browser's actual `<video>` element over fragile Stremio UI labels.
 - **Build-time Firebase defaults** - Firebase defaults can be injected from `.env` instead of hardcoding a project in source.
-- **Maintainable source layout** - The revived scripts live in `src/`, while generated Tampermonkey install files remain at the repo root.
+- **Maintainable source layout** - The revived scripts live in `src/`, while generated Tampermonkey install files are written to ignored `dist/`.
 
 Planned future improvement: add a same-video identity check so host and guests can detect when they are not watching the same Stremio item or stream.
 
